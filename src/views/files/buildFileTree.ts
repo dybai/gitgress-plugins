@@ -3,6 +3,8 @@ export type FileTreeNode = {
   path: string;
   kind: 'dir' | 'file';
   status?: string;
+  additions?: number;
+  deletions?: number;
   children?: FileTreeNode[];
   contextValue?: 'empty' | 'error';
 };
@@ -19,6 +21,8 @@ type FileEntry = {
   path: string;
   kind: 'file';
   status: string;
+  additions: number;
+  deletions: number;
 };
 
 type TreeEntry = DirEntry | FileEntry;
@@ -39,6 +43,8 @@ function entryToNode(entry: TreeEntry): FileTreeNode {
       path: entry.path,
       kind: 'file',
       status: entry.status,
+      additions: entry.additions,
+      deletions: entry.deletions,
     };
   }
   const children = sortSiblings(
@@ -50,6 +56,30 @@ function entryToNode(entry: TreeEntry): FileTreeNode {
     kind: 'dir',
     children,
   };
+}
+
+function compactNodes(nodes: FileTreeNode[]): FileTreeNode[] {
+  return nodes.map(compactNode);
+}
+
+function compactNode(node: FileTreeNode): FileTreeNode {
+  if (node.kind === 'file') {
+    return node;
+  }
+  let current = { ...node, children: compactNodes(node.children ?? []) };
+  while (
+    current.children?.length === 1 &&
+    current.children[0].kind === 'dir'
+  ) {
+    const only = current.children[0];
+    current = {
+      kind: 'dir',
+      name: `${current.name}/${only.name}`,
+      path: only.path,
+      children: only.children ?? [],
+    };
+  }
+  return current;
 }
 
 function getOrCreateDir(
@@ -70,6 +100,8 @@ function insert(
   root: Map<string, TreeEntry>,
   filePath: string,
   status: string,
+  additions: number,
+  deletions: number,
 ): void {
   const segments = filePath.split('/').filter(Boolean);
   if (segments.length === 0) {
@@ -85,7 +117,14 @@ function insert(
     prefix = prefix ? `${prefix}/${seg}` : seg;
 
     if (isFile) {
-      map.set(seg, { name: seg, path: prefix, kind: 'file', status });
+      map.set(seg, {
+        name: seg,
+        path: prefix,
+        kind: 'file',
+        status,
+        additions,
+        deletions,
+      });
     } else {
       const dir = getOrCreateDir(map, seg, prefix);
       map = dir.childMap;
@@ -94,11 +133,19 @@ function insert(
 }
 
 export function buildFileTree(
-  files: Array<{ path: string; status: string }>,
+  files: Array<{ path: string; status: string; additions?: number; deletions?: number }>,
+  options?: { compact?: boolean },
 ): FileTreeNode[] {
   const root = new Map<string, TreeEntry>();
   for (const file of files) {
-    insert(root, file.path, file.status);
+    insert(
+      root,
+      file.path,
+      file.status,
+      file.additions ?? 0,
+      file.deletions ?? 0,
+    );
   }
-  return sortSiblings([...root.values()].map(entryToNode));
+  const nodes = sortSiblings([...root.values()].map(entryToNode));
+  return options?.compact === false ? nodes : compactNodes(nodes);
 }

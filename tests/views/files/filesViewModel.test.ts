@@ -22,28 +22,11 @@ describe('filesViewModel', () => {
     });
   });
 
-  it('builds a file tree for the selected commit', () => {
-    expect(
-      filesViewModel('abc123', [
-        { path: 'src/a.ts', status: 'M', additions: 1, deletions: 2 },
-      ]),
-    ).toEqual({
-      mode: 'tree',
-      tree: [
-        {
-          name: 'src',
-          path: 'src',
-          kind: 'dir',
-          children: [
-            {
-              name: 'a.ts',
-              path: 'src/a.ts',
-              kind: 'file',
-              status: 'M',
-            },
-          ],
-        },
-      ],
+  it('returns flat files for the selected commit', () => {
+    const files = [{ path: 'src/a.ts', status: 'M', additions: 1, deletions: 2 }];
+    expect(filesViewModel('abc123', files)).toEqual({
+      mode: 'loaded',
+      files,
     });
   });
 });

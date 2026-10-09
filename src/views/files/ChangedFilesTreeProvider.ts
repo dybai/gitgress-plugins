@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { GitService } from '../../git/GitService';
 import type { SelectionSnapshot, SelectionState } from '../../state/SelectionState';
-import type { FileTreeNode } from './buildFileTree';
+import { buildFileTree, type FileTreeNode } from './buildFileTree';
 import { filesViewModel } from './filesViewModel';
 
 export class ChangedFilesTreeProvider
@@ -94,8 +94,8 @@ export class ChangedFilesTreeProvider
       return;
     }
     this.roots =
-      model.mode === 'tree'
-        ? model.tree
+      model.mode === 'loaded'
+        ? buildFileTree(model.files, { compact: false })
         : [
             {
               name: model.message,

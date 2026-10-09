@@ -1,10 +1,9 @@
 import type { ChangedFile } from '../../git/GitService';
-import { buildFileTree, type FileTreeNode } from './buildFileTree';
 
 export type FilesViewModel =
   | { mode: 'empty'; message: string }
   | { mode: 'error'; message: string }
-  | { mode: 'tree'; tree: FileTreeNode[] };
+  | { mode: 'loaded'; files: ChangedFile[] };
 
 export function filesViewModel(
   commitId: string | null,
@@ -17,5 +16,5 @@ export function filesViewModel(
   if (error !== undefined) {
     return { mode: 'error', message: error };
   }
-  return { mode: 'tree', tree: buildFileTree(files ?? []) };
+  return { mode: 'loaded', files: files ?? [] };
 }
