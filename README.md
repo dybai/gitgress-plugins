@@ -1,8 +1,10 @@
 # Gitgress
 
-Gitgress is a VS Code/Cursor extension for browsing a repository's linear commit
-history, inspecting the files changed by a selected commit, and opening diffs
-against that commit's parent.
+Gitgress is a VS Code/Cursor extension for browsing a repository's commit
+history as a multi-lane graph (including merge forks), loading more commits via
+infinite scroll, inspecting files changed by a selected commit, and opening
+diffs against that commit's parent. Commit details appear in a floating hover
+overlay (no avatar) that stays aligned while you scroll.
 
 ## Install and run
 
@@ -15,8 +17,11 @@ editor supporting extension engine `^1.85.0` (including VS Code and Cursor).
 4. In the new window, open a Git repository and select **Gitgress** in the
    Activity Bar.
 
-The Commits view displays the selected branch's history. Use the branch and
-refresh buttons in the view title. Selecting a commit populates the Files view.
+The Commits view shows the selected branch with an SVG lane graph. Scroll toward
+the bottom to load older commits until history is exhausted. Use the branch and
+refresh buttons in the view title; either action resets the list from the
+newest commits. Hover or focus a commit row for the overlay tooltip. Selecting
+a commit populates the Files view (first-parent changed paths, same as diffs).
 
 ## Architecture
 
@@ -32,7 +37,8 @@ VS Code extension host
 
 The Git layer has no UI dependencies. Shared selection state coordinates the
 Commits webview and Files TreeView; providers translate state and Git results
-into their respective VS Code UI models.
+into their respective VS Code UI models. History `git log` includes merge
+topology; changed-file and diff queries still use first-parent flattening.
 
 ## Development and tests
 
@@ -57,11 +63,15 @@ is activated. Folder nodes only expand or collapse.
 
 ## Manual acceptance checklist
 
-Run these checks in an Extension Development Host:
+Run these checks in an Extension Development Host (e.g. open a repo with merge
+history such as `fintech-service`):
 
-- [ ] A Git workspace shows linear commits and the graph line.
+- [ ] Merge forks are visible in the commit graph (multi-lane layout).
+- [ ] Scrolling down loads more commits until no further pages remain.
+- [ ] Hover overlay follows the row without layout jump and shows no avatar.
+- [ ] Files tree and file diffs still reflect first-parent changes only.
+- [ ] Branch switch or refresh clears pagination and reloads from HEAD.
 - [ ] Commit hover content includes the complete specified fields.
-- [ ] The branch Quick Pick switches the displayed branch and refreshes views.
 - [ ] Selecting a commit shows the correct changed-file tree.
 - [ ] Activating a file leaf opens its diff against the commit's parent
       (single-click TreeView adaptation noted above).

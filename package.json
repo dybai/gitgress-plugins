@@ -1,7 +1,7 @@
 {
   "name": "gitgress",
   "displayName": "Gitgress",
-  "description": "Linear git history, changed files, and parent-commit diffs",
+  "description": "Multi-lane commit graph, paginated history, changed files, and parent-commit diffs",
   "version": "0.1.0",
   "publisher": "pg-dybai",
   "license": "MIT",
