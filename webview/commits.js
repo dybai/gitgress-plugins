@@ -90,6 +90,10 @@
     if (!hoveredButton || hoverCard.classList.contains('hidden')) return;
 
     const rowRect = hoveredButton.getBoundingClientRect();
+    if (rowRect.bottom < 0 || rowRect.top > window.innerHeight) {
+      hideHover();
+      return;
+    }
     const cardRect = hoverCard.getBoundingClientRect();
     const gap = 8;
     const edge = 8;
