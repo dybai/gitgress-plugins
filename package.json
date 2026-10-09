@@ -27,7 +27,8 @@
     },
     "commands": [
       { "command": "gitgress.switchBranch", "title": "Gitgress: Switch Branch", "icon": "$(git-branch)" },
-      { "command": "gitgress.refresh", "title": "Gitgress: Refresh", "icon": "$(refresh)" }
+      { "command": "gitgress.refresh", "title": "Gitgress: Refresh", "icon": "$(refresh)" },
+      { "command": "gitgress.openFileDiff", "title": "Gitgress: Open File Diff" }
     ],
     "menus": {
       "view/title": [

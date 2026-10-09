@@ -4,6 +4,7 @@ export type FileTreeNode = {
   kind: 'dir' | 'file';
   status?: string;
   children?: FileTreeNode[];
+  contextValue?: 'empty' | 'error';
 };
 
 type DirEntry = {
