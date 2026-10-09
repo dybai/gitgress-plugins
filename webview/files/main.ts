@@ -8,6 +8,7 @@ import type {
 } from '../../src/protocol/filesMessages';
 import { buildFileList } from '../../src/views/files/buildFileList';
 import { buildFileTree, type FileTreeNode } from '../../src/views/files/buildFileTree';
+import { wireOpenButton, wireTreeSelection } from '../../src/views/files/treeInteraction';
 import { cycleFilesLayout } from '../../src/views/files/cycleFilesLayout';
 import {
   fileTooltip,
@@ -115,6 +116,8 @@ function createOpenButton(path: string, status: string): HTMLButtonElement {
   button.title = label;
   button.setAttribute('aria-label', label);
   button.appendChild(svgIcon(ICON_OPEN));
+  // Direct listener: vscode-tree-item stops click propagation, so delegation can't be used.
+  wireOpenButton(button, (openPath) => send({ type: 'openWorkingFile', path: openPath }));
   return button;
 }
 
@@ -213,6 +216,10 @@ function renderTreeNode(state: LoadedState, node: FileTreeNode): HTMLElement {
 function renderTree(state: LoadedState): HTMLElement {
   const tree = document.createElement('vscode-tree');
   tree.setAttribute('indent-guides', 'onHover');
+  wireTreeSelection(tree, (path) => {
+    selectedPath = path;
+    send({ type: 'fileSelected', path });
+  });
   for (const node of buildFileTree(state.files, { compact: true })) {
     tree.appendChild(renderTreeNode(state, node));
   }
@@ -254,21 +261,15 @@ function markListSelection(path: string): void {
   }
 }
 
+// List layout selection only. Tree selection uses `vsc-tree-select` (see renderTree), and
+// Open buttons have direct listeners (see createOpenButton).
 contentEl.addEventListener('click', (event) => {
   const target = event.target;
   if (!(target instanceof Element)) {
     return;
   }
-  const openBtn = target.closest<HTMLButtonElement>('button[data-action="open"]');
-  if (openBtn !== null) {
-    event.stopPropagation();
-    const path = openBtn.dataset.path;
-    if (path !== undefined && !openBtn.disabled) {
-      send({ type: 'openWorkingFile', path });
-    }
-    return;
-  }
-  const path = rowPath(target);
+  const row = target.closest<HTMLElement>('.file-row');
+  const path = row?.dataset.path;
   if (path !== undefined) {
     selectedPath = path;
     markListSelection(path);
