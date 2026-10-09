@@ -4,10 +4,13 @@
  * `vscode-tree-item` calls `stopPropagation()` on clicks inside its shadow wrapper, so
  * delegated `click` listeners on a container never see tree clicks. Selection must use
  * the tree's `vsc-tree-select` event, and Open buttons need their own direct listener.
+ * Double-click to open Diff is also wired per file item — relying on `#content` delegation
+ * is unreliable across the tree shadow boundary in the webview.
  */
 
 export interface TreeItemLike {
-  dataset?: { path?: string; kind?: string };
+  /** Prefer `filePath` — vscode-tree-item owns `path` as its index path (e.g. "0.0"). */
+  dataset?: { filePath?: string; path?: string; kind?: string };
 }
 
 export interface ListenerTarget {
@@ -18,6 +21,23 @@ export interface OpenButtonLike extends ListenerTarget {
   disabled: boolean;
   dataset: { path?: string };
 }
+
+export interface TreeFileItemLike extends ListenerTarget {
+  dataset: { filePath?: string; path?: string; kind?: string };
+}
+
+/** Git relative path stored on tree items (not `data-path`, which vscode-tree-item overwrites). */
+export function treeItemFilePath(dataset: TreeItemLike['dataset']): string | undefined {
+  const filePath = dataset?.filePath;
+  if (typeof filePath === 'string' && filePath !== '') {
+    return filePath;
+  }
+  return undefined;
+}
+
+type ClosableTarget = {
+  closest?(selector: string): unknown;
+};
 
 /**
  * Maps a `vsc-tree-select` detail to the selected file path. The runtime detail is an
@@ -32,8 +52,12 @@ export function selectedFilePathFromTreeDetail(detail: unknown): string | undefi
       : [];
   for (const item of items as TreeItemLike[]) {
     const dataset = item?.dataset;
-    if (dataset?.kind === 'file' && typeof dataset.path === 'string' && dataset.path !== '') {
-      return dataset.path;
+    if (dataset?.kind !== 'file') {
+      continue;
+    }
+    const path = treeItemFilePath(dataset);
+    if (path !== undefined) {
+      return path;
     }
   }
   return undefined;
@@ -67,4 +91,54 @@ export function wireOpenButton(
       onOpen(path);
     }
   });
+}
+
+function isOpenButtonTarget(target: unknown): boolean {
+  if (target === null || typeof target !== 'object') {
+    return false;
+  }
+  const closable = target as ClosableTarget;
+  return typeof closable.closest === 'function'
+    ? closable.closest('button[data-action="open"]') != null
+    : false;
+}
+
+/** Direct dblclick on a file tree item → open Diff (skips directories and Open button). */
+export function wireTreeFileDoubleClick(
+  item: TreeFileItemLike,
+  onDiff: (path: string) => void,
+): void {
+  item.addEventListener('dblclick', (event: { target?: unknown }) => {
+    if (item.dataset.kind !== 'file') {
+      return;
+    }
+    const path = treeItemFilePath(item.dataset);
+    if (path === undefined || isOpenButtonTarget(event.target)) {
+      return;
+    }
+    onDiff(path);
+  });
+}
+
+export type TreeSelectGesture = 'select' | 'openDiff';
+
+/**
+ * `vscode-tree-item` click uses stopPropagation inside shadow DOM; native `dblclick`
+ * often never reaches our handlers in the webview. Each click still emits
+ * `vsc-tree-select`, so two rapid selects of the same file mean "open Diff".
+ */
+export function createTreeDoubleSelectDetector(
+  thresholdMs = 400,
+  now: () => number = Date.now,
+): (path: string) => TreeSelectGesture {
+  let last: { path: string; at: number } | null = null;
+  return (path: string): TreeSelectGesture => {
+    const at = now();
+    if (last !== null && last.path === path && at - last.at <= thresholdMs) {
+      last = null;
+      return 'openDiff';
+    }
+    last = { path, at };
+    return 'select';
+  };
 }

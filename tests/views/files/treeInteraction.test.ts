@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  createTreeDoubleSelectDetector,
   selectedFilePathFromTreeDetail,
   wireOpenButton,
+  wireTreeFileDoubleClick,
   wireTreeSelection,
 } from '../../../src/views/files/treeInteraction';
 
@@ -26,10 +28,21 @@ class FakeNode {
 }
 
 function fileItem(path: string, kind = 'file') {
-  return { dataset: { path, kind } };
+  return { dataset: { filePath: path, kind } };
 }
 
 describe('selectedFilePathFromTreeDetail', () => {
+  it('ignores vscode-tree-item index path on data-path', () => {
+    expect(
+      selectedFilePathFromTreeDetail([
+        { dataset: { path: '0.0', kind: 'file', filePath: 'src/a.ts' } },
+      ]),
+    ).toBe('src/a.ts');
+    expect(
+      selectedFilePathFromTreeDetail([{ dataset: { path: '0.0', kind: 'file' } }]),
+    ).toBeUndefined();
+  });
+
   it('maps runtime array detail to the selected file path', () => {
     expect(selectedFilePathFromTreeDetail([fileItem('src/a.ts')])).toBe('src/a.ts');
   });
@@ -106,5 +119,71 @@ describe('wireOpenButton with a propagation-stopping tree item', () => {
     wireOpenButton(button, onOpen);
     button.dispatch('click');
     expect(onOpen).not.toHaveBeenCalled();
+  });
+});
+
+describe('wireTreeFileDoubleClick', () => {
+  function setupTreeItem() {
+    const content = new FakeNode();
+    const delegated = vi.fn();
+    content.addEventListener('dblclick', delegated);
+    const item = Object.assign(new FakeNode(content), {
+      dataset: { filePath: 'src/a.ts', kind: 'file' },
+    });
+    return { item, content, delegated };
+  }
+
+  it('opens diff from a direct dblclick on a file item', () => {
+    const { item } = setupTreeItem();
+    const onDiff = vi.fn();
+    wireTreeFileDoubleClick(item, onDiff);
+    item.dispatch('dblclick', { target: item });
+    expect(onDiff).toHaveBeenCalledWith('src/a.ts');
+  });
+
+  it('ignores directory items and open-button targets', () => {
+    const dir = Object.assign(new FakeNode(), {
+      dataset: { filePath: 'src', kind: 'dir' },
+    });
+    const onDiff = vi.fn();
+    wireTreeFileDoubleClick(dir, onDiff);
+    dir.dispatch('dblclick', { target: dir });
+    expect(onDiff).not.toHaveBeenCalled();
+
+    const { item } = setupTreeItem();
+    wireTreeFileDoubleClick(item, onDiff);
+    const openBtn = {
+      closest(selector: string) {
+        return selector === 'button[data-action="open"]' ? openBtn : null;
+      },
+    };
+    item.dispatch('dblclick', { target: openBtn });
+    expect(onDiff).not.toHaveBeenCalled();
+  });
+});
+
+describe('createTreeDoubleSelectDetector', () => {
+  it('opens diff on second select within the threshold', () => {
+    let now = 0;
+    const detect = createTreeDoubleSelectDetector(400, () => now);
+    now = 1000;
+    expect(detect('a.ts')).toBe('select');
+    now = 1200;
+    expect(detect('a.ts')).toBe('openDiff');
+  });
+
+  it('resets after openDiff and ignores slow or different paths', () => {
+    let now = 0;
+    const detect = createTreeDoubleSelectDetector(400, () => now);
+    now = 1000;
+    expect(detect('a.ts')).toBe('select');
+    now = 1500;
+    expect(detect('a.ts')).toBe('select');
+    now = 1600;
+    expect(detect('b.ts')).toBe('select');
+    now = 1700;
+    expect(detect('b.ts')).toBe('openDiff');
+    now = 1800;
+    expect(detect('b.ts')).toBe('select');
   });
 });

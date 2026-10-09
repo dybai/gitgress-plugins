@@ -5,7 +5,9 @@ import {
   formatAdditions,
   formatDeletions,
   isOpenDisabled,
+  layoutButtonCaption,
   layoutButtonLabel,
+  layoutIconKind,
 } from '../../src/views/files/fileRowModel';
 
 describe('fileTooltip', () => {
@@ -53,5 +55,16 @@ describe('layoutButtonLabel', () => {
     );
     expect(layoutButtonLabel('list', 'list')).toBe('Layout: List. Click for tree.');
     expect(layoutButtonLabel('tree', 'tree')).toBe('Layout: Tree. Click for auto.');
+  });
+});
+
+describe('layout preference chrome', () => {
+  it('maps the toolbar icon and caption to preference, not effective layout', () => {
+    expect(layoutIconKind('auto')).toBe('auto');
+    expect(layoutIconKind('list')).toBe('list');
+    expect(layoutIconKind('tree')).toBe('tree');
+    expect(layoutButtonCaption('auto')).toBe('Auto');
+    expect(layoutButtonCaption('list')).toBe('List');
+    expect(layoutButtonCaption('tree')).toBe('Tree');
   });
 });

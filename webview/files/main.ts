@@ -8,7 +8,12 @@ import type {
 } from '../../src/protocol/filesMessages';
 import { buildFileList } from '../../src/views/files/buildFileList';
 import { buildFileTree, type FileTreeNode } from '../../src/views/files/buildFileTree';
-import { wireOpenButton, wireTreeSelection } from '../../src/views/files/treeInteraction';
+import {
+  createTreeDoubleSelectDetector,
+  wireOpenButton,
+  wireTreeFileDoubleClick,
+  wireTreeSelection,
+} from '../../src/views/files/treeInteraction';
 import {
   layoutToggleIntent,
   rowDoubleClickIntent,
@@ -18,7 +23,9 @@ import {
   formatAdditions,
   formatDeletions,
   isOpenDisabled,
+  layoutButtonCaption,
   layoutButtonLabel,
+  layoutIconKind,
 } from '../../src/views/files/fileRowModel';
 import type { FilesLayoutPreference } from '../../src/views/files/resolveFilesLayout';
 
@@ -65,11 +72,24 @@ function svgIcon(pathData: string): SVGSVGElement {
 const ICON_LIST = 'M2 3h12v1.5H2V3zm0 4.25h12v1.5H2v-1.5zM2 11.5h12V13H2v-1.5z';
 const ICON_TREE =
   'M2 2.5h5V4H2V2.5zm2 4h6V8H4V6.5zm0 3.5h6v1.5H4V10zm-1-7v9h1V3H3zm5.5 8.5h5V13h-5v-1.5z';
+/** Distinct from list/tree: list bars + spark mark so Auto is visible when effective layout is list. */
+const ICON_AUTO =
+  'M1.5 2.5h8V4h-8V2.5zm0 4h6v1.5h-6V6.5zm0 4h8V12h-8v-1.5zM12.2 1.8l.55 1.7h1.75l-1.4 1.05.55 1.7-1.45-1.05-1.45 1.05.55-1.7-1.4-1.05h1.75l.55-1.7z';
 const ICON_OPEN =
   'M3 1.5h6.2L13 5.3V14.5H3v-13zm1 1v11h8V6H8.5V2.5H4zm5.5.7V5H11.3L9.5 3.2z';
 
-function setLayoutIcon(layout: 'list' | 'tree'): void {
-  layoutButton.replaceChildren(svgIcon(layout === 'tree' ? ICON_TREE : ICON_LIST));
+const LAYOUT_ICONS: Record<FilesLayoutPreference, string> = {
+  auto: ICON_AUTO,
+  list: ICON_LIST,
+  tree: ICON_TREE,
+};
+
+function setLayoutChrome(preference: FilesLayoutPreference): void {
+  const kind = layoutIconKind(preference);
+  const caption = document.createElement('span');
+  caption.className = 'layout-caption';
+  caption.textContent = layoutButtonCaption(preference);
+  layoutButton.replaceChildren(svgIcon(LAYOUT_ICONS[kind]), caption);
 }
 
 function renderToolbar(state: LoadedState | null): void {
@@ -77,12 +97,13 @@ function renderToolbar(state: LoadedState | null): void {
   if (state === null) {
     layoutButton.title = 'Change files layout';
     layoutButton.setAttribute('aria-label', 'Change files layout');
+    layoutButton.replaceChildren();
     return;
   }
   const label = layoutButtonLabel(state.layoutPreference, state.effectiveLayout);
   layoutButton.title = label;
   layoutButton.setAttribute('aria-label', label);
-  setLayoutIcon(state.effectiveLayout);
+  setLayoutChrome(state.layoutPreference);
 }
 
 function setBadge(count: number): void {
@@ -179,7 +200,8 @@ function fileStatusFor(state: LoadedState, path: string): string {
 
 function renderTreeNode(state: LoadedState, node: FileTreeNode): HTMLElement {
   const item = document.createElement('vscode-tree-item');
-  item.dataset.path = node.path;
+  // Do NOT use data-path: vscode-tree-item overwrites it with its index path ("0.0").
+  item.dataset.filePath = node.path;
   item.dataset.kind = node.kind;
 
   if (node.kind === 'dir') {
@@ -213,13 +235,23 @@ function renderTreeNode(state: LoadedState, node: FileTreeNode): HTMLElement {
   if (node.path === selectedPath) {
     item.setAttribute('selected', '');
   }
+  // Direct dblclick: #content delegation is unreliable for vscode-tree-item.
+  wireTreeFileDoubleClick(item, (diffPath) =>
+    send({ type: 'openFileDiff', path: diffPath }),
+  );
   return item;
 }
 
 function renderTree(state: LoadedState): HTMLElement {
   const tree = document.createElement('vscode-tree');
   tree.setAttribute('indent-guides', 'onHover');
+  // Prefer double-select: native dblclick often never leaves vscode-tree-item shadow.
+  const detectDoubleSelect = createTreeDoubleSelectDetector();
   wireTreeSelection(tree, (path) => {
+    if (detectDoubleSelect(path) === 'openDiff') {
+      send({ type: 'openFileDiff', path });
+      return;
+    }
     selectedPath = path;
     send({ type: 'fileSelected', path });
   });

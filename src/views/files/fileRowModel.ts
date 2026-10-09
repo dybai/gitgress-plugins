@@ -42,3 +42,14 @@ export function layoutButtonLabel(
   const next = cycleFilesLayout(preference);
   return `Layout: ${current}. Click for ${next}.`;
 }
+
+/** Toolbar icon must follow preference — auto may render as list/tree effectively. */
+export function layoutIconKind(
+  preference: FilesLayoutPreference,
+): FilesLayoutPreference {
+  return preference;
+}
+
+export function layoutButtonCaption(preference: FilesLayoutPreference): string {
+  return PREFERENCE_NAMES[preference];
+}
