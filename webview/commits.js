@@ -120,10 +120,14 @@
     if (!(svg instanceof SVGElement)) return;
 
     const buttons = [...commitList.querySelectorAll('.commit-button')];
-    const height = commitList.scrollHeight;
+    const lastCommit = commitList.querySelector('.commit:last-of-type');
+    const height = lastCommit
+      ? lastCommit.offsetTop + lastCommit.offsetHeight
+      : 0;
     const width = graphWidth(message.laneCount);
     const rowY = buttons.map(
-      (button) => button.offsetTop + button.offsetHeight / 2,
+      (button) =>
+        button.closest('.commit')?.offsetTop + button.offsetHeight / 2,
     );
 
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
