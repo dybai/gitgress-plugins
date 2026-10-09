@@ -6,6 +6,38 @@
   const commitList = document.querySelector('#commit-list');
   const switchBranch = document.querySelector('#switch-branch');
   let selectedButton;
+  let lastPayload;
+
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const MAX_LANES = 10;
+  const LANE_WIDTH = 14;
+  const PALETTE = [
+    'var(--vscode-gitDecoration-modifiedResourceForeground)',
+    'var(--vscode-gitDecoration-addedResourceForeground)',
+    'var(--vscode-charts-purple)',
+    'var(--vscode-charts-orange)',
+    'var(--vscode-charts-blue)',
+    'var(--vscode-charts-yellow)',
+    'var(--vscode-charts-red)',
+    'var(--vscode-charts-green)',
+  ];
+
+  const svgElement = (tag, attributes = {}) => {
+    const element = document.createElementNS(SVG_NS, tag);
+    for (const [name, value] of Object.entries(attributes)) {
+      element.setAttribute(name, String(value));
+    }
+    return element;
+  };
+
+  const laneX = (lane) =>
+    (Math.min(Math.max(0, lane), MAX_LANES - 1) + 0.5) * LANE_WIDTH;
+
+  const graphWidth = (laneCount) =>
+    Math.max(1, Math.min(laneCount, MAX_LANES)) * LANE_WIDTH;
+
+  const edgeColor = (colorIndex) =>
+    PALETTE[Math.abs(colorIndex) % PALETTE.length];
 
   const appendTextElement = (parent, tag, className, text) => {
     const element = document.createElement(tag);
@@ -49,13 +81,13 @@
     button.dataset.commitId = commit.id;
     button.setAttribute('aria-label', `${commit.subject}, by ${commit.authorName}`);
 
-    const node = document.createElement('span');
-    node.className = 'node';
-    node.setAttribute('aria-hidden', 'true');
+    const graphCell = document.createElement('span');
+    graphCell.className = 'graph-cell';
+    graphCell.setAttribute('aria-hidden', 'true');
     const copy = document.createElement('span');
     copy.className = 'commit-copy';
     appendTextElement(copy, 'span', 'subject', commit.subject);
-    button.append(node, copy);
+    button.append(graphCell, copy);
 
     const card = document.createElement('aside');
     card.className = 'hover-card';
@@ -83,6 +115,66 @@
     return item;
   };
 
+  const drawGraph = (message) => {
+    const svg = commitList.querySelector('.commit-graph');
+    if (!(svg instanceof SVGElement)) return;
+
+    const buttons = [...commitList.querySelectorAll('.commit-button')];
+    const height = commitList.scrollHeight;
+    const width = graphWidth(message.laneCount);
+    const rowY = buttons.map(
+      (button) => button.offsetTop + button.offsetHeight / 2,
+    );
+
+    svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('width', String(width));
+    svg.setAttribute('height', String(height));
+
+    const edges = svgElement('g', { class: 'graph-edges' });
+    for (const edge of message.edges) {
+      const fromY = rowY[edge.fromRow];
+      const toY = edge.truncated ? height : rowY[edge.toRow];
+      if (!Number.isFinite(fromY) || !Number.isFinite(toY)) continue;
+
+      const fromX = laneX(edge.fromLane);
+      const toX = laneX(edge.toLane);
+      const path = svgElement('path', {
+        class: edge.truncated ? 'graph-edge graph-edge-truncated' : 'graph-edge',
+        d:
+          fromX === toX
+            ? `M ${fromX} ${fromY} V ${toY}`
+            : `M ${fromX} ${fromY} V ${toY} H ${toX}`,
+      });
+      path.style.stroke = edgeColor(edge.colorIndex);
+      edges.append(path);
+    }
+
+    const nodes = svgElement('g', { class: 'graph-nodes' });
+    message.commits.forEach((commit, row) => {
+      if (!Number.isFinite(rowY[row])) return;
+      const node = svgElement('circle', {
+        class: 'graph-node',
+        cx: laneX(commit.lane),
+        cy: rowY[row],
+        r: 4,
+      });
+      node.style.stroke = edgeColor(commit.colorIndex);
+      nodes.append(node);
+    });
+
+    svg.replaceChildren(edges, nodes);
+  };
+
+  const isGrowingReplacement = (message) =>
+    message.mode === 'replace' &&
+    lastPayload?.branch === message.branch &&
+    message.commits.length > lastPayload.commits.length &&
+    lastPayload.commits.every(
+      (commit, index) => message.commits[index]?.id === commit.id,
+    );
+
+  const scrollContainer = () => document.scrollingElement || document.documentElement;
+
   const showStatus = (message, retryable) => {
     selectedButton = undefined;
     content.classList.add('hidden');
@@ -99,9 +191,20 @@
   };
 
   const renderCommits = (message) => {
+    const savedScrollTop = isGrowingReplacement(message)
+      ? scrollContainer().scrollTop
+      : null;
     selectedButton = undefined;
     branchName.textContent = message.branch;
+    const width = graphWidth(message.laneCount);
+    commitList.style.setProperty('--graph-width', `${width}px`);
+    const svg = svgElement('svg', {
+      class: 'commit-graph',
+      'aria-hidden': 'true',
+      focusable: 'false',
+    });
     commitList.replaceChildren(
+      svg,
       ...message.commits.map((commit) => createCommit(commit, message.branch)),
     );
     const selectedId = message.selectedCommitId;
@@ -116,7 +219,17 @@
     }
     status.classList.add('hidden');
     content.classList.remove('hidden');
+    lastPayload = message;
+    drawGraph(message);
+    if (savedScrollTop !== null) {
+      scrollContainer().scrollTop = savedScrollTop;
+    }
   };
+
+  const resizeObserver = new ResizeObserver(() => {
+    if (lastPayload) drawGraph(lastPayload);
+  });
+  resizeObserver.observe(commitList);
 
   window.addEventListener('message', ({ data }) => {
     if (!data || typeof data !== 'object' || typeof data.type !== 'string') return;

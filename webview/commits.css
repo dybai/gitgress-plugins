@@ -79,21 +79,37 @@ button {
 }
 
 .commit-list {
+  --graph-width: 14px;
   position: relative;
   margin: 0;
   padding: 6px 0 12px;
   list-style: none;
 }
 
-.commit-list::before {
-  content: '';
+.commit-graph {
   position: absolute;
-  top: 17px;
-  bottom: 23px;
-  left: 20px;
-  width: 1px;
-  background: var(--vscode-gitDecoration-modifiedResourceForeground);
-  opacity: 0.55;
+  z-index: 2;
+  inset: 0 auto auto 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.graph-edge {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.72;
+}
+
+.graph-edge-truncated {
+  opacity: 0.32;
+  stroke-dasharray: 2 3;
+}
+
+.graph-node {
+  fill: var(--vscode-sideBar-background);
+  stroke-width: 2;
 }
 
 .commit {
@@ -104,7 +120,7 @@ button {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: 41px minmax(0, 1fr);
+  grid-template-columns: var(--graph-width) minmax(0, 1fr);
   width: 100%;
   min-height: 34px;
   padding: 0;
@@ -125,21 +141,8 @@ button {
   background: var(--vscode-list-inactiveSelectionBackground);
 }
 
-.node {
-  align-self: center;
-  justify-self: center;
-  width: 9px;
-  height: 9px;
-  border: 2px solid var(--vscode-gitDecoration-modifiedResourceForeground);
-  border-radius: 50%;
-  background: var(--vscode-sideBar-background);
-  box-shadow: 0 0 0 3px var(--vscode-sideBar-background);
-}
-
-.commit-button:hover .node,
-.commit-button:focus-visible .node {
-  background: var(--vscode-gitDecoration-modifiedResourceForeground);
-  box-shadow: 0 0 0 3px var(--vscode-list-hoverBackground);
+.graph-cell {
+  min-width: 0;
 }
 
 .commit-copy {
@@ -157,7 +160,7 @@ button {
 .hover-card {
   position: relative;
   display: none;
-  margin: 1px 9px 8px 41px;
+  margin: 1px 9px 8px var(--graph-width);
   padding: 10px;
   border: 1px solid var(--vscode-widget-border);
   border-radius: 5px;
