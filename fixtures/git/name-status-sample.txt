@@ -1,0 +1,4 @@
+A	new.ts
+M	src/a.ts
+D	obd.ts
+R100	old.ts	newname.ts
