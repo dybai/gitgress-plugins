@@ -60,6 +60,9 @@
     "test:watch": "vitest",
     "vscode:prepublish": "npm run compile"
   },
+  "dependencies": {
+    "@vscode-elements/elements": "^2.5.1"
+  },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",

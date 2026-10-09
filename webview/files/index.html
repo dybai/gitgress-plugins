@@ -4,14 +4,27 @@
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; style-src {{cspSource}}; script-src {{cspSource}}"
+      content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src {{cspSource}}; font-src {{cspSource}};"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="stylesheet" href="{{styleUri}}" />
     <title>Files</title>
   </head>
   <body>
-    <pre id="root" role="status">Loading files...</pre>
+    <header class="toolbar">
+      <span class="title">Files changed</span>
+      <vscode-badge id="count">0</vscode-badge>
+      <button
+        id="layout-btn"
+        class="icon-btn"
+        type="button"
+        title="Change files layout"
+        aria-label="Change files layout"
+        disabled
+      ></button>
+    </header>
+    <div id="message" class="empty" role="status">Select a commit</div>
+    <main id="content"></main>
     <script src="{{scriptUri}}"></script>
   </body>
 </html>

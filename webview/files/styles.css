@@ -1,13 +1,167 @@
 body {
   margin: 0;
-  padding: 8px;
+  padding: 0;
   color: var(--vscode-foreground);
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size);
 }
 
-pre {
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-all;
+[hidden] {
+  display: none !important;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+}
+
+.toolbar .title {
+  flex: 1;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.icon-btn,
+.open-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--vscode-icon-foreground, var(--vscode-foreground));
+  cursor: pointer;
+}
+
+.icon-btn:hover:not(:disabled),
+.open-btn:hover:not(:disabled) {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.icon-btn:focus-visible,
+.open-btn:focus-visible,
+.file-row:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+
+.icon-btn:disabled,
+.open-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+#message {
+  padding: 8px 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+#message.error {
+  color: var(--vscode-errorForeground);
+}
+
+/* Shared row pieces */
+.name {
+  white-space: nowrap;
+}
+
+.directory {
+  margin-left: 6px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.8;
+  font-size: 0.9em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 4px;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+.stats .add {
+  color: var(--vscode-gitDecoration-addedResourceForeground, #81b88b);
+}
+
+.stats .del {
+  color: var(--vscode-gitDecoration-deletedResourceForeground, #c74e39);
+}
+
+.stats .status {
+  min-width: 1ch;
+  text-align: center;
+  font-weight: 600;
+  color: var(--vscode-gitDecoration-modifiedResourceForeground, #e2c08d);
+}
+
+.stats .status-A {
+  color: var(--vscode-gitDecoration-addedResourceForeground, #81b88b);
+}
+
+.stats .status-D {
+  color: var(--vscode-gitDecoration-deletedResourceForeground, #c74e39);
+}
+
+.stats .status-R,
+.stats .status-C {
+  color: var(--vscode-gitDecoration-renamedResourceForeground, #73c991);
+}
+
+/* List layout */
+.file-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 22px;
+  padding: 0 8px;
+  cursor: pointer;
+}
+
+.file-row .label {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.file-row:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.file-row.selected {
+  background: var(--vscode-list-inactiveSelectionBackground);
+  color: var(--vscode-list-inactiveSelectionForeground);
+}
+
+.file-row .open-btn {
+  visibility: hidden;
+}
+
+.file-row:hover .open-btn,
+.file-row:focus-within .open-btn,
+.file-row.selected .open-btn {
+  visibility: visible;
+}
+
+/* Tree layout */
+vscode-tree-item .stats {
+  margin-right: 8px;
 }

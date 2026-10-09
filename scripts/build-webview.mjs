@@ -16,6 +16,8 @@ await esbuild.build({
   format: 'iife',
   platform: 'browser',
   target: ['es2022'],
+  // Bundles @vscode-elements/elements (+ lit) and shared src/views/files helpers into files.js.
+  legalComments: 'none',
   outdir,
   logLevel: 'info',
 });
