@@ -1,10 +1,9 @@
 import * as fs from 'node:fs';
 import * as vscode from 'vscode';
-import { resolveDiffTarget } from '../../commands/diffTarget';
 import { openFileDiffByPath } from '../../commands/openFileDiff';
 import { openWorkingFile } from '../../commands/openWorkingFile';
 import type { DiffService } from '../../diff/DiffService';
-import type { ChangedFile, GitService } from '../../git/GitService';
+import type { GitService } from '../../git/GitService';
 import {
   isFilesWebviewToHost,
   type FilesWebviewToHost,
@@ -12,6 +11,7 @@ import {
 } from '../../protocol/filesMessages';
 import type { SelectionSnapshot, SelectionState } from '../../state/SelectionState';
 import { buildFilesMessage } from './buildFilesPayload';
+import { matchesSelection, resolveLoadedTarget, type LoadedFiles } from './loadedFiles';
 import type { FilesLayoutPreference } from './resolveFilesLayout';
 
 export const FILES_LAYOUT_KEY = 'gitgress.files.layout';
@@ -25,8 +25,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider, vscode.Dis
   private view: vscode.WebviewView | undefined;
   private readonly unsubscribe: () => void;
   private loadVersion = 0;
-  private lastFiles: ChangedFile[] = [];
-  private lastCommitId: string | null = null;
+  private loaded: LoadedFiles | null = null;
   private selectedPath: string | null = null;
 
   constructor(
@@ -85,19 +84,19 @@ export class FilesViewProvider implements vscode.WebviewViewProvider, vscode.Dis
         await this.load(this.selection.getSnapshot());
         return;
       case 'fileSelected':
-        if (resolveDiffTarget(this.lastFiles, message.path) !== undefined) {
+        if (this.resolveTarget(message.path) !== undefined) {
           this.selectedPath = message.path;
         }
         return;
       case 'openFileDiff': {
-        const target = resolveDiffTarget(this.lastFiles, message.path);
+        const target = this.resolveTarget(message.path);
         if (target !== undefined) {
           await openFileDiffByPath(this.selection, this.diffService, target);
         }
         return;
       }
       case 'openWorkingFile': {
-        const target = resolveDiffTarget(this.lastFiles, message.path);
+        const target = this.resolveTarget(message.path);
         const { repoRoot } = this.selection.getSnapshot();
         if (target !== undefined && repoRoot !== null) {
           await openWorkingFile(repoRoot, target.path, target.status);
@@ -115,6 +114,11 @@ export class FilesViewProvider implements vscode.WebviewViewProvider, vscode.Dis
 
     const version = ++this.loadVersion;
     const { repoRoot, selectedCommitId } = snapshot;
+    // Invalidate immediately so actions cannot use a previous commit's file list
+    // while the new selection is still loading.
+    if (!matchesSelection(this.loaded, snapshot)) {
+      this.resetLoaded();
+    }
     const target = { repoRoot, commitId: selectedCommitId };
     const preference = readLayout(this.state);
 
@@ -129,11 +133,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider, vscode.Dis
       if (!this.isCurrent(version, view)) {
         return;
       }
-      if (this.lastCommitId !== selectedCommitId) {
-        this.selectedPath = null;
-      }
-      this.lastFiles = files;
-      this.lastCommitId = selectedCommitId;
+      this.loaded = { repoRoot, commitId: selectedCommitId, files };
       this.post(buildFilesMessage(target, files, preference), version, view);
     } catch {
       if (!this.isCurrent(version, view)) {
@@ -149,9 +149,12 @@ export class FilesViewProvider implements vscode.WebviewViewProvider, vscode.Dis
   }
 
   private resetLoaded(): void {
-    this.lastFiles = [];
-    this.lastCommitId = null;
+    this.loaded = null;
     this.selectedPath = null;
+  }
+
+  private resolveTarget(path: string) {
+    return resolveLoadedTarget(this.loaded, this.selection.getSnapshot(), path);
   }
 
   private isCurrent(version: number, view: vscode.WebviewView): boolean {
