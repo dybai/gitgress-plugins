@@ -69,7 +69,7 @@ describe('GitService', () => {
 
     expect(rows[0]).toMatchObject({
       id: 'abc',
-      parentId: 'def',
+      parentIds: ['def'],
       subject: 'subj',
       additions: 2,
       deletions: 1,

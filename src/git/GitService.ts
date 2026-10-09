@@ -6,7 +6,7 @@ import { parseNumstat } from './parseNumstat';
 
 export type CommitSummary = {
   id: string;
-  parentId: string | null;
+  parentIds: string[];
   subject: string;
   authorName: string;
   authorDateIso: string;

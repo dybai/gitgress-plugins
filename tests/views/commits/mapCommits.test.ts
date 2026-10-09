@@ -4,7 +4,7 @@ import { toCommitDto, truncateSubject } from '../../../src/views/commits/mapComm
 
 const commit: CommitSummary = {
   id: '0123456789abcdef',
-  parentId: 'fedcba9876543210',
+  parentIds: ['fedcba9876543210'],
   subject: 'A concise commit subject',
   authorName: 'Ada Lovelace',
   authorDateIso: '2026-10-09T08:00:00.000Z',

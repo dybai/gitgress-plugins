@@ -12,14 +12,14 @@ describe('parseLog', () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
       id: 'aaa',
-      parentId: null,
+      parentIds: [],
       subject: 'root',
       additions: 2,
       deletions: 1,
     });
     expect(rows[1]).toMatchObject({
       id: 'bbb',
-      parentId: 'aaa',
+      parentIds: ['aaa'],
       subject: 'child',
       authorName: 'Bob',
       additions: 3,
@@ -45,13 +45,13 @@ describe('parseLog', () => {
     expect(rows[1]).toMatchObject({ id: 'bbb', additions: 0, deletions: 2 });
   });
 
-  it('uses first parent only when %P lists multiple parents', () => {
+  it('parses all parents from %P', () => {
     const stdout =
       ['merge', 'p1 p2', 'merge subject', 'Ann', '2024-01-03T00:00:00Z', 'merge msg\n'].join('\x1f') +
       '\x1d\n1\t1\tfile.ts\n\x1e';
     const rows = parseLog(stdout);
     expect(rows).toHaveLength(1);
-    expect(rows[0].parentId).toBe('p1');
+    expect(rows[0].parentIds).toEqual(['p1', 'p2']);
   });
 
   it('skips malformed records without throwing', () => {

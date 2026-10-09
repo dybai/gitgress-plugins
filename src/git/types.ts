@@ -1,7 +1,7 @@
 /** Fields align with `CommitDto` where overlapping. */
 export type LogCommit = {
   id: string;
-  parentId: string | null;
+  parentIds: string[];
   subject: string;
   authorName: string;
   authorDateIso: string;

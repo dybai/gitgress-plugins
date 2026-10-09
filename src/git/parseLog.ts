@@ -22,9 +22,11 @@ export function parseLog(stdout: string): LogCommit[] {
     const [idRaw, parentsRaw, subject, authorName, authorDateIso, ...bodyParts] = parts;
     const id = idRaw.trimStart();
     const fullMessage = bodyParts.join(FIELD_SEP);
-    // Merge commits: %P may list multiple parents; MVP uses the first parent only.
     const parents = (parentsRaw ?? '').trim();
-    const parentId = parents === '' ? null : (parents.split(/\s+/)[0] ?? null);
+    const parentIds =
+      parents === ''
+        ? []
+        : parents.split(/\s+/).filter((id) => id.length > 0);
     let additions = 0;
     let deletions = 0;
     for (const stats of parseNumstat(numstat).values()) {
@@ -34,7 +36,7 @@ export function parseLog(stdout: string): LogCommit[] {
 
     commits.push({
       id,
-      parentId,
+      parentIds,
       subject,
       authorName,
       authorDateIso,

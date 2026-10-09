@@ -6,7 +6,7 @@ export type CommitDto = {
   fullMessage: string;
   additions: number;
   deletions: number;
-  parentId: string | null;
+  parentIds: string[];
 };
 
 export type HostToWebview =
@@ -45,7 +45,8 @@ function isCommitDto(value: unknown): value is CommitDto {
     typeof value.fullMessage === 'string' &&
     typeof value.additions === 'number' &&
     typeof value.deletions === 'number' &&
-    (value.parentId === null || typeof value.parentId === 'string')
+    Array.isArray(value.parentIds) &&
+    value.parentIds.every(isNonEmptyString)
   );
 }
 
