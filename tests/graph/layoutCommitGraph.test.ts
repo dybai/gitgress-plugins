@@ -22,7 +22,11 @@ describe('layoutCommitGraph', () => {
     expect(layout.commits[0]).toMatchObject({ id: 'm', lane: 0 });
     const lanes = new Set(layout.commits.map((c) => c.lane));
     expect(lanes.size).toBeGreaterThan(1);
-    expect(layout.edges.some((e) => e.fromRow === 0)).toBe(true);
+    expect(layout.edges.find((e) => e.fromRow === 0 && e.toRow === 2)).toMatchObject({
+      fromLane: 0,
+      viaLane: 1,
+      toLane: 1,
+    });
   });
 
   it('emits a truncated edge when second parent is outside the loaded set', () => {
@@ -30,7 +34,27 @@ describe('layoutCommitGraph', () => {
       { id: 'm', parentIds: ['b', 'missing'] },
       { id: 'b', parentIds: [] },
     ]);
-    expect(layout.edges.some((e) => e.truncated && e.toRow === -1)).toBe(true);
+    expect(layout.edges.find((e) => e.truncated && e.toRow === -1)).toMatchObject({
+      fromLane: 0,
+      viaLane: 1,
+      toLane: 1,
+    });
+  });
+
+  it('truncates an edge when its parent appeared before its child', () => {
+    const layout = layoutCommitGraph([
+      { id: 'parent', parentIds: [] },
+      { id: 'child', parentIds: ['parent'] },
+    ]);
+
+    expect(layout.edges).toContainEqual(
+      expect.objectContaining({
+        fromRow: 1,
+        toRow: -1,
+        viaLane: 0,
+        truncated: true,
+      }),
+    );
   });
 
   it('recomputes stably when the same list is passed twice', () => {

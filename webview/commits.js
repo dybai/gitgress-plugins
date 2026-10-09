@@ -216,13 +216,14 @@
       if (!Number.isFinite(fromY) || !Number.isFinite(toY)) continue;
 
       const fromX = laneX(edge.fromLane);
+      const viaX = laneX(edge.viaLane);
       const toX = laneX(edge.toLane);
       const path = svgElement('path', {
         class: edge.truncated ? 'graph-edge graph-edge-truncated' : 'graph-edge',
         d:
-          fromX === toX
+          fromX === viaX && viaX === toX
             ? `M ${fromX} ${fromY} V ${toY}`
-            : `M ${fromX} ${fromY} V ${toY} H ${toX}`,
+            : `M ${fromX} ${fromY} H ${viaX} V ${toY} H ${toX}`,
       });
       path.style.stroke = edgeColor(edge.colorIndex);
       edges.append(path);

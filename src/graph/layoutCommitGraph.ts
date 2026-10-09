@@ -4,6 +4,7 @@ export type GraphEdge = {
   fromRow: number;
   toRow: number;
   fromLane: number;
+  viaLane: number;
   toLane: number;
   colorIndex: number;
   truncated: boolean;
@@ -27,6 +28,7 @@ type ActiveLane = {
   colorIndex: number;
   fromRow: number;
   fromLane: number;
+  viaLane: number;
 };
 
 export function layoutCommitGraph(commits: GraphCommitInput[]): CommitGraphLayout {
@@ -37,7 +39,6 @@ export function layoutCommitGraph(commits: GraphCommitInput[]): CommitGraphLayou
   const active: Array<ActiveLane | null> = [];
   const layouts: GraphCommitLayout[] = [];
   const edges: GraphEdge[] = [];
-  const commitIds = new Set(commits.map((commit) => commit.id));
   let nextColor = 0;
   let laneCount = 0;
 
@@ -64,6 +65,7 @@ export function layoutCommitGraph(commits: GraphCommitInput[]): CommitGraphLayou
         fromRow: lane.fromRow,
         toRow: row,
         fromLane: lane.fromLane,
+        viaLane: lane.viaLane,
         toLane: primaryLane,
         colorIndex: lane.colorIndex,
         truncated: false,
@@ -83,17 +85,19 @@ export function layoutCommitGraph(commits: GraphCommitInput[]): CommitGraphLayou
         colorIndex: parentColor,
         fromRow: row,
         fromLane: primaryLane,
+        viaLane: laneIndex,
       };
       laneCount = Math.max(laneCount, laneIndex + 1);
     });
   });
 
   active.forEach((lane, laneIndex) => {
-    if (lane && !commitIds.has(lane.tipId)) {
+    if (lane) {
       edges.push({
         fromRow: lane.fromRow,
         toRow: -1,
         fromLane: lane.fromLane,
+        viaLane: lane.viaLane,
         toLane: laneIndex,
         colorIndex: lane.colorIndex,
         truncated: true,

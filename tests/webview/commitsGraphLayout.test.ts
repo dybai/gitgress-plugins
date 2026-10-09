@@ -20,6 +20,13 @@ describe('commits graph DOM layout', () => {
     );
     expect(source).not.toMatch(/const height = commitList\.scrollHeight/);
   });
+
+  it('routes fork edges horizontally through their allocated lane', () => {
+    expect(source).toMatch(/const viaX = laneX\(edge\.viaLane\)/);
+    expect(source).toMatch(
+      /M \$\{fromX\} \$\{fromY\} H \$\{viaX\} V \$\{toY\} H \$\{toX\}/,
+    );
+  });
 });
 
 describe('commits hover overlay assets', () => {

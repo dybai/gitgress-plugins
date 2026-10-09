@@ -2,6 +2,7 @@ export type GraphEdgeDto = {
   fromRow: number;
   toRow: number;
   fromLane: number;
+  viaLane: number;
   toLane: number;
   colorIndex: number;
   truncated: boolean;
@@ -57,6 +58,7 @@ function isGraphEdgeDto(value: unknown): value is GraphEdgeDto {
     typeof value.fromRow === 'number' &&
     typeof value.toRow === 'number' &&
     typeof value.fromLane === 'number' &&
+    typeof value.viaLane === 'number' &&
     typeof value.toLane === 'number' &&
     typeof value.colorIndex === 'number' &&
     typeof value.truncated === 'boolean'

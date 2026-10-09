@@ -19,6 +19,7 @@ const validEdge = {
   fromRow: 0,
   toRow: 1,
   fromLane: 0,
+  viaLane: 1,
   toLane: 0,
   colorIndex: 1,
   truncated: false,
@@ -68,6 +69,11 @@ describe('isHostMessage', () => {
 
   it('rejects commitsLoaded with invalid mode', () => {
     expect(isHostMessage(validCommitsLoaded({ mode: 'merge' }))).toBe(false);
+  });
+
+  it('rejects commitsLoaded when an edge is missing viaLane', () => {
+    const { viaLane: _, ...withoutViaLane } = validEdge;
+    expect(isHostMessage(validCommitsLoaded({ edges: [withoutViaLane] }))).toBe(false);
   });
 });
 

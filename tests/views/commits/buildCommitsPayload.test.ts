@@ -38,6 +38,7 @@ describe('buildCommitsPayload', () => {
     expect(message.commits[0]).toMatchObject({ id: 'b', parentIds: ['a'] });
     expect(typeof message.commits[0].lane).toBe('number');
     expect(message.edges).toEqual(expect.any(Array));
+    expect(message.edges[0]).toMatchObject({ viaLane: 0 });
     expect(message.laneCount).toBeGreaterThanOrEqual(1);
   });
 });

@@ -81,6 +81,7 @@ export class GitService {
       '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
       '--numstat',
       '--no-renames',
+      '--date-order',
       '--end-of-options',
       branch,
       '--',

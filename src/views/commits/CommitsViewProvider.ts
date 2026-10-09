@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as vscode from 'vscode';
-import type { CommitSummary, GitService } from '../../git/GitService';
+import type { GitService } from '../../git/GitService';
 import {
   isWebviewToHost,
   type HostToWebview,
@@ -12,6 +12,14 @@ import {
   shouldReloadCommits,
   type CommitsLoadContext,
 } from './shouldReloadCommits';
+import {
+  appendPage,
+  beginLoadMore,
+  createPaginationState,
+  failLoadMore,
+  loadCommitPage,
+  replacePage,
+} from './paginationState';
 
 export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   private view: vscode.WebviewView | undefined;
@@ -19,9 +27,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
   private lastLoadedCommitIds = new Set<string>();
   private lastLoadContext: CommitsLoadContext | null = null;
   private loadVersion = 0;
-  private loaded: CommitSummary[] = [];
-  private hasMore = false;
-  private loadingMore = false;
+  private pagination = createPaginationState();
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -101,7 +107,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     }
 
     const version = ++this.loadVersion;
-    const { repoRoot, branch, selectedCommitId } = snapshot;
+    const { repoRoot, branch } = snapshot;
     this.lastLoadContext = { repoRoot, branch };
     this.resetPagination();
     if (repoRoot === null) {
@@ -118,7 +124,14 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     }
 
     try {
-      const batch = await this.gitService.log(repoRoot, branch, PAGE_SIZE, 0);
+      const { batch, selectedCommitId } = await loadCommitPage(
+        this.gitService,
+        this.selection,
+        repoRoot,
+        branch,
+        PAGE_SIZE,
+        0,
+      );
       if (!this.isCurrentLoad(version, view)) {
         return;
       }
@@ -126,14 +139,13 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
         this.applyMessage({ type: 'empty', reason: 'noCommits' }, version, view);
         return;
       }
-      this.loaded = batch;
-      this.hasMore = batch.length === PAGE_SIZE;
+      this.pagination = replacePage(this.pagination, batch, PAGE_SIZE);
       this.applyMessage(
         buildCommitsPayload(
           branch,
-          this.loaded,
+          this.pagination.loaded,
           'replace',
-          this.hasMore,
+          this.pagination.hasMore,
           selectedCommitId,
         ),
         version,
@@ -154,34 +166,40 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
 
   private async loadMore(): Promise<void> {
     const view = this.view;
-    const { repoRoot, branch, selectedCommitId } = this.selection.getSnapshot();
+    const { repoRoot, branch } = this.selection.getSnapshot();
+    const loadingPagination = beginLoadMore(this.pagination);
     if (
       view === undefined ||
       repoRoot === null ||
       branch === null ||
       branch === '' ||
-      !this.hasMore ||
-      this.loadingMore
+      loadingPagination === null
     ) {
       return;
     }
 
     const version = ++this.loadVersion;
-    const offset = this.loaded.length;
-    this.loadingMore = true;
+    const offset = loadingPagination.loaded.length;
+    this.pagination = loadingPagination;
     try {
-      const batch = await this.gitService.log(repoRoot, branch, PAGE_SIZE, offset);
+      const { batch, selectedCommitId } = await loadCommitPage(
+        this.gitService,
+        this.selection,
+        repoRoot,
+        branch,
+        PAGE_SIZE,
+        offset,
+      );
       if (!this.isCurrentLoad(version, view)) {
         return;
       }
-      this.loaded = [...this.loaded, ...batch];
-      this.hasMore = batch.length === PAGE_SIZE;
+      this.pagination = appendPage(this.pagination, batch, PAGE_SIZE);
       this.applyMessage(
         buildCommitsPayload(
           branch,
-          this.loaded,
+          this.pagination.loaded,
           'replace',
-          this.hasMore,
+          this.pagination.hasMore,
           selectedCommitId,
         ),
         version,
@@ -189,9 +207,8 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
       );
     } catch {
       // Keep the existing commits visible so load more can be retried.
-    } finally {
       if (this.isCurrentLoad(version, view)) {
-        this.loadingMore = false;
+        this.pagination = failLoadMore(this.pagination);
       }
     }
   }
@@ -201,9 +218,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
   }
 
   private resetPagination(): void {
-    this.loaded = [];
-    this.hasMore = false;
-    this.loadingMore = false;
+    this.pagination = createPaginationState();
     this.lastLoadedCommitIds.clear();
   }
 
