@@ -1,14 +1,13 @@
 import * as fs from 'node:fs';
 import * as vscode from 'vscode';
-import type { GitService } from '../../git/GitService';
+import type { CommitSummary, GitService } from '../../git/GitService';
 import {
   isWebviewToHost,
   type HostToWebview,
   type WebviewToHost,
 } from '../../protocol/messages';
 import type { SelectionSnapshot, SelectionState } from '../../state/SelectionState';
-import { layoutCommitGraph } from '../../graph/layoutCommitGraph';
-import { toCommitDto } from './mapCommits';
+import { buildCommitsPayload, PAGE_SIZE } from './buildCommitsPayload';
 import {
   shouldReloadCommits,
   type CommitsLoadContext,
@@ -20,6 +19,9 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
   private lastLoadedCommitIds = new Set<string>();
   private lastLoadContext: CommitsLoadContext | null = null;
   private loadVersion = 0;
+  private loaded: CommitSummary[] = [];
+  private hasMore = false;
+  private loadingMore = false;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -55,6 +57,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
         this.view = undefined;
         this.lastLoadedCommitIds.clear();
         this.lastLoadContext = null;
+        this.resetPagination();
       }
     });
   }
@@ -68,6 +71,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     this.view = undefined;
     this.lastLoadedCommitIds.clear();
     this.lastLoadContext = null;
+    this.resetPagination();
   }
 
   private async handleMessage(message: WebviewToHost): Promise<void> {
@@ -80,6 +84,9 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
         if (this.lastLoadedCommitIds.has(message.commitId)) {
           this.selection.selectCommit(message.commitId);
         }
+        return;
+      case 'loadMore':
+        await this.loadMore();
         return;
       case 'switchBranch':
         await vscode.commands.executeCommand('gitgress.switchBranch');
@@ -96,6 +103,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     const version = ++this.loadVersion;
     const { repoRoot, branch, selectedCommitId } = snapshot;
     this.lastLoadContext = { repoRoot, branch };
+    this.resetPagination();
     if (repoRoot === null) {
       this.applyMessage({ type: 'empty', reason: 'noRepo' }, version, view);
       return;
@@ -110,37 +118,93 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     }
 
     try {
-      const commits = await this.gitService.log(repoRoot, branch, 100);
-      if (commits.length === 0) {
+      const batch = await this.gitService.log(repoRoot, branch, PAGE_SIZE, 0);
+      if (!this.isCurrentLoad(version, view)) {
+        return;
+      }
+      if (batch.length === 0) {
         this.applyMessage({ type: 'empty', reason: 'noCommits' }, version, view);
         return;
       }
-      const graph = layoutCommitGraph(commits);
-      const layoutById = new Map(graph.commits.map((entry) => [entry.id, entry]));
+      this.loaded = batch;
+      this.hasMore = batch.length === PAGE_SIZE;
       this.applyMessage(
-        {
-          type: 'commitsLoaded',
+        buildCommitsPayload(
           branch,
-          commits: commits.map((row) => {
-            const layout = layoutById.get(row.id)!;
-            return toCommitDto(row, { lane: layout.lane, colorIndex: layout.colorIndex });
-          }),
-          edges: graph.edges,
-          laneCount: graph.laneCount,
-          hasMore: commits.length === 100,
-          mode: 'replace',
+          this.loaded,
+          'replace',
+          this.hasMore,
           selectedCommitId,
-        },
+        ),
         version,
         view,
       );
     } catch {
+      if (!this.isCurrentLoad(version, view)) {
+        return;
+      }
+      this.resetPagination();
       this.applyMessage(
         { type: 'empty', reason: 'error', message: 'Unable to load commits' },
         version,
         view,
       );
     }
+  }
+
+  private async loadMore(): Promise<void> {
+    const view = this.view;
+    const { repoRoot, branch, selectedCommitId } = this.selection.getSnapshot();
+    if (
+      view === undefined ||
+      repoRoot === null ||
+      branch === null ||
+      branch === '' ||
+      !this.hasMore ||
+      this.loadingMore
+    ) {
+      return;
+    }
+
+    const version = ++this.loadVersion;
+    const offset = this.loaded.length;
+    this.loadingMore = true;
+    try {
+      const batch = await this.gitService.log(repoRoot, branch, PAGE_SIZE, offset);
+      if (!this.isCurrentLoad(version, view)) {
+        return;
+      }
+      this.loaded = [...this.loaded, ...batch];
+      this.hasMore = batch.length === PAGE_SIZE;
+      this.applyMessage(
+        buildCommitsPayload(
+          branch,
+          this.loaded,
+          'replace',
+          this.hasMore,
+          selectedCommitId,
+        ),
+        version,
+        view,
+      );
+    } catch {
+      // Keep the existing commits visible so load more can be retried.
+    } finally {
+      if (this.isCurrentLoad(version, view)) {
+        this.loadingMore = false;
+      }
+    }
+  }
+
+  private isCurrentLoad(version: number, view: vscode.WebviewView): boolean {
+    return version === this.loadVersion && this.view === view;
+  }
+
+  private resetPagination(): void {
+    this.loaded = [];
+    this.hasMore = false;
+    this.loadingMore = false;
+    this.lastLoadedCommitIds.clear();
   }
 
   private applyMessage(
