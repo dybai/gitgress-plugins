@@ -61,23 +61,31 @@ export class GitService {
       .filter((branch) => branch !== '');
   }
 
-  async log(repoRoot: string, branch: string, limit: number): Promise<CommitSummary[]> {
+  async log(
+    repoRoot: string,
+    branch: string,
+    limit: number,
+    skip = 0,
+  ): Promise<CommitSummary[]> {
     if (!Number.isInteger(limit) || limit <= 0) {
       throw new RangeError('Git log limit must be a positive integer');
     }
-    const { stdout } = await this.runGit(repoRoot, [
+    if (!Number.isInteger(skip) || skip < 0) {
+      throw new RangeError('Git log skip must be a non-negative integer');
+    }
+    const args = [
       'log',
       '-n',
       String(limit),
+      ...(skip > 0 ? ['--skip', String(skip)] : []),
       '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
       '--numstat',
       '--no-renames',
-      '-m',
-      '--first-parent',
       '--end-of-options',
       branch,
       '--',
-    ]);
+    ];
+    const { stdout } = await this.runGit(repoRoot, args);
     return parseLog(stdout);
   }
 

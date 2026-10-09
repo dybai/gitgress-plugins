@@ -81,13 +81,37 @@ describe('GitService', () => {
       '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
       '--numstat',
       '--no-renames',
-      '-m',
-      '--first-parent',
       '--end-of-options',
       'main',
       '--',
     ]);
     expect(runGit).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs without --first-parent/-m and supports skip', async () => {
+    const runGit = vi.fn<RunGit>(async () => ({ stdout: '', stderr: '' }));
+    await new GitService(runGit).log('/repo', 'main', 100, 100);
+    expect(runGit).toHaveBeenCalledWith('/repo', [
+      'log',
+      '-n',
+      '100',
+      '--skip',
+      '100',
+      '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
+      '--numstat',
+      '--no-renames',
+      '--end-of-options',
+      'main',
+      '--',
+    ]);
+  });
+
+  it('rejects a negative or non-integer skip', async () => {
+    const runGit = vi.fn<RunGit>();
+    const service = new GitService(runGit);
+    await expect(service.log('/repo', 'main', 100, -1)).rejects.toBeInstanceOf(RangeError);
+    await expect(service.log('/repo', 'main', 100, 1.5)).rejects.toBeInstanceOf(RangeError);
+    expect(runGit).not.toHaveBeenCalled();
   });
 
   it('rejects a non-positive or non-integer log limit', async () => {
