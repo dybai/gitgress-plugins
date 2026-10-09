@@ -29,7 +29,7 @@ export async function switchBranch(
 
   const branches = await gitService.listBranches(repoRoot);
   const selected = await pickBranch(branches, branch, showQuickPick);
-  if (selected !== undefined) {
+  if (selected !== undefined && selected !== branch) {
     selection.setBranch(selected);
   }
 }

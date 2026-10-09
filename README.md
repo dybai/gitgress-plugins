@@ -6,7 +6,8 @@ against that commit's parent.
 
 ## Install and run
 
-Requirements: Node.js, npm, Git, and VS Code or Cursor 1.85+.
+Requirements: Node.js, npm, Git 2.24 or newer, and a VS Code-compatible
+editor supporting extension engine `^1.85.0` (including VS Code and Cursor).
 
 1. Clone the repository and run `npm ci`.
 2. Open the repository in VS Code or Cursor.

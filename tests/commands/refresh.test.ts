@@ -95,6 +95,48 @@ describe('refreshRepository', () => {
     expect(selection.setBranch).toHaveBeenCalledWith('main');
   });
 
+  it('uses HEAD as the detached-HEAD display branch', async () => {
+    const gitService = {
+      resolveRepo: vi.fn(async () => '/repo'),
+      currentBranch: vi.fn(async () => ''),
+      listBranches: vi.fn(async () => ['main']),
+    };
+    const selection = {
+      getSnapshot: vi.fn(() => ({
+        repoRoot: null,
+        branch: null,
+        selectedCommitId: null,
+      })),
+      setRepo: vi.fn(),
+      setBranch: vi.fn(),
+    };
+
+    await refreshRepository(gitService, selection, [{ uri: { fsPath: '/repo' } }]);
+
+    expect(selection.setBranch).toHaveBeenCalledWith('HEAD');
+  });
+
+  it('preserves HEAD as a valid detached-HEAD display branch', async () => {
+    const gitService = {
+      resolveRepo: vi.fn(async () => '/repo'),
+      currentBranch: vi.fn(async () => ''),
+      listBranches: vi.fn(async () => ['main']),
+    };
+    const selection = {
+      getSnapshot: vi.fn(() => ({
+        repoRoot: '/repo',
+        branch: 'HEAD',
+        selectedCommitId: 'abc',
+      })),
+      setRepo: vi.fn(),
+      setBranch: vi.fn(),
+    };
+
+    await refreshRepository(gitService, selection, [{ uri: { fsPath: '/repo' } }]);
+
+    expect(selection.setBranch).not.toHaveBeenCalled();
+  });
+
   it('preserves selection when the resolved repository and branch are unchanged', async () => {
     const gitService = {
       resolveRepo: vi.fn(async () => '/repo'),

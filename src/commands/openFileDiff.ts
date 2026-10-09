@@ -9,8 +9,8 @@ export function registerOpenFileDiff(
 ): vscode.Disposable {
   return vscode.commands.registerCommand(
     'gitgress.openFileDiff',
-    async (node: FileTreeNode): Promise<void> => {
-      if (node.kind !== 'file' || node.status === undefined) {
+    async (node?: FileTreeNode): Promise<void> => {
+      if (node === undefined || node.kind !== 'file' || node.status === undefined) {
         return;
       }
 

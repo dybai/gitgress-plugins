@@ -50,6 +50,27 @@ describe('pickBranch', () => {
     expect(selection.setBranch).toHaveBeenCalledWith('feature/work');
   });
 
+  it('keeps the selected commit when the current branch is reselected', async () => {
+    const gitService = {
+      listBranches: vi.fn(async () => ['main', 'feature/work']),
+    };
+    const selection = {
+      getSnapshot: vi.fn(() => ({
+        repoRoot: '/repo',
+        branch: 'main',
+        selectedCommitId: 'abc',
+      })),
+      setBranch: vi.fn(),
+    };
+    const showQuickPick = vi.fn(async () => ({
+      label: 'main',
+    })) as unknown as typeof vscode.window.showQuickPick;
+
+    await switchBranch(gitService, selection, showQuickPick);
+
+    expect(selection.setBranch).not.toHaveBeenCalled();
+  });
+
   it('does nothing when there is no resolved repository', async () => {
     const gitService = { listBranches: vi.fn() };
     const selection = {

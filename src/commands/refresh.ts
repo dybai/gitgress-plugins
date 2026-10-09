@@ -32,7 +32,7 @@ export async function refreshRepository(
     return;
   }
 
-  const currentBranch = (await gitService.currentBranch(repoRoot)) || null;
+  const currentBranch = (await gitService.currentBranch(repoRoot)) || 'HEAD';
   const { branch } = selection.getSnapshot();
   if (branch === null) {
     selection.setBranch(currentBranch);
@@ -40,7 +40,7 @@ export async function refreshRepository(
   }
 
   const branches = await gitService.listBranches(repoRoot);
-  if (!branches.includes(branch)) {
+  if (branch !== 'HEAD' && !branches.includes(branch)) {
     selection.setBranch(currentBranch);
   }
 }

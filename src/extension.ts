@@ -32,7 +32,6 @@ export function activate(context: vscode.ExtensionContext): void {
         selection,
         vscode.workspace.workspaceFolders ?? [],
       );
-      commitsProvider.refresh();
       filesProvider.refresh();
     } catch (error) {
       selection.setRepo(null);

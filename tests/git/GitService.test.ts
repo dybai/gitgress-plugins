@@ -58,19 +58,11 @@ describe('GitService', () => {
     ]);
   });
 
-  it('returns structured commits with aggregate stats', async () => {
-    const runGit = vi.fn<RunGit>(async (_cwd, args) => {
-      if (args[0] === 'log') {
-        const body =
-          ['abc', 'def', 'subj', 'Ann', '2024-01-01T00:00:00Z', 'full\n'].join('\x1f') +
-          '\x1e\n';
-        return { stdout: body, stderr: '' };
-      }
-      if (args.includes('--numstat')) {
-        return { stdout: '2\t1\tfile.ts\n-\t-\timage.png\n', stderr: '' };
-      }
-      return { stdout: '', stderr: '' };
-    });
+  it('returns structured commits with aggregate stats from one git process', async () => {
+    const body =
+      ['abc', 'def', 'subj', 'Ann', '2024-01-01T00:00:00Z', 'full\n'].join('\x1f') +
+      '\x1d\n2\t1\tfile.ts\n-\t-\timage.png\n\x1e\n';
+    const runGit = vi.fn<RunGit>(async () => ({ stdout: body, stderr: '' }));
     const service = new GitService(runGit);
 
     const rows = await service.log('/repo', 'main', 100);
@@ -86,22 +78,16 @@ describe('GitService', () => {
       'log',
       '-n',
       '100',
-      '--format=%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1e',
-      '--end-of-options',
-      'main',
-      '--',
-    ]);
-    expect(runGit).toHaveBeenNthCalledWith(2, '/repo', [
-      'show',
+      '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
       '--numstat',
-      '--format=',
       '--no-renames',
       '-m',
       '--first-parent',
       '--end-of-options',
-      'abc',
+      'main',
       '--',
     ]);
+    expect(runGit).toHaveBeenCalledTimes(1);
   });
 
   it('rejects a non-positive or non-integer log limit', async () => {

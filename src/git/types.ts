@@ -1,4 +1,4 @@
-/** Fields align with `CommitDto` where overlapping (no additions/deletions from log). */
+/** Fields align with `CommitDto` where overlapping. */
 export type LogCommit = {
   id: string;
   parentId: string | null;
@@ -6,6 +6,8 @@ export type LogCommit = {
   authorName: string;
   authorDateIso: string;
   fullMessage: string;
+  additions: number;
+  deletions: number;
 };
 
 export type NameStatusEntry = {

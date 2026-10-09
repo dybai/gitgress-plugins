@@ -1,8 +1,8 @@
 import { GitCommandFailedError, GitNotFoundError } from './errors';
 import { parseLog } from './parseLog';
 import { parseNameStatus } from './parseNameStatus';
-import { parseNumstat } from './parseNumstat';
 import type { RunGit } from './runGit';
+import { parseNumstat } from './parseNumstat';
 
 export type CommitSummary = {
   id: string;
@@ -69,35 +69,16 @@ export class GitService {
       'log',
       '-n',
       String(limit),
-      '--format=%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1e',
+      '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
+      '--numstat',
+      '--no-renames',
+      '-m',
+      '--first-parent',
       '--end-of-options',
       branch,
       '--',
     ]);
-    const commits = parseLog(stdout);
-    const summaries: CommitSummary[] = [];
-
-    for (const commit of commits) {
-      const statsResult = await this.runGit(repoRoot, [
-        'show',
-        '--numstat',
-        '--format=',
-        '--no-renames',
-        '-m',
-        '--first-parent',
-        '--end-of-options',
-        commit.id,
-        '--',
-      ]);
-      let additions = 0;
-      let deletions = 0;
-      for (const stats of parseNumstat(statsResult.stdout).values()) {
-        additions += stats.additions;
-        deletions += stats.deletions;
-      }
-      summaries.push({ ...commit, additions, deletions });
-    }
-    return summaries;
+    return parseLog(stdout);
   }
 
   async changedFiles(repoRoot: string, commitId: string): Promise<ChangedFile[]> {
