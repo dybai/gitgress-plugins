@@ -158,48 +158,77 @@ button {
 }
 
 .hover-card {
-  position: relative;
-  display: none;
-  margin: 1px 9px 8px var(--graph-width);
-  padding: 10px;
+  position: fixed;
+  z-index: 1000;
+  width: max-content;
+  max-width: min(420px, calc(100vw - 16px));
+  padding: 9px 10px;
   border: 1px solid var(--vscode-widget-border);
-  border-radius: 5px;
+  border-radius: 4px;
   color: var(--vscode-editorHoverWidget-foreground);
   background: var(--vscode-editorHoverWidget-background);
   box-shadow: 0 4px 12px var(--vscode-widget-shadow);
   line-height: 1.35;
 }
 
-.commit:hover .hover-card,
-.commit:focus-within .hover-card {
-  display: block;
+.hover-card::before,
+.hover-card::after {
+  position: absolute;
+  left: var(--caret-left, 50%);
+  width: 0;
+  height: 0;
+  border: solid transparent;
+  content: '';
+  pointer-events: none;
+  transform: translateX(-50%);
 }
 
-.card-message {
-  margin: 0 0 9px;
-  white-space: pre-wrap;
+.hover-card.caret-top::before {
+  top: -7px;
+  border-width: 0 7px 7px;
+  border-bottom-color: var(--vscode-widget-border);
+}
+
+.hover-card.caret-top::after {
+  top: -6px;
+  border-width: 0 6px 6px;
+  border-bottom-color: var(--vscode-editorHoverWidget-background);
+}
+
+.hover-card.caret-bottom::before {
+  bottom: -7px;
+  border-width: 7px 7px 0;
+  border-top-color: var(--vscode-widget-border);
+}
+
+.hover-card.caret-bottom::after {
+  bottom: -6px;
+  border-width: 6px 6px 0;
+  border-top-color: var(--vscode-editorHoverWidget-background);
+}
+
+.card-primary,
+.card-details,
+.card-message,
+.card-branch {
+  margin: 0;
   overflow-wrap: anywhere;
 }
 
-.card-meta {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 3px 8px;
+.card-primary {
+  font-weight: 600;
+}
+
+.card-details,
+.card-branch {
+  margin-top: 3px;
   color: var(--vscode-descriptionForeground);
   font-size: 11px;
 }
 
-.card-meta dt,
-.card-meta dd {
-  margin: 0;
-}
-
-.card-meta dt {
-  opacity: 0.75;
-}
-
-.card-meta dd {
-  overflow-wrap: anywhere;
+.card-message {
+  margin-top: 8px;
+  white-space: pre-wrap;
 }
 
 .additions {

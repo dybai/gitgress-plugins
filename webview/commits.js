@@ -5,7 +5,10 @@
   const branchName = document.querySelector('#branch-name');
   const commitList = document.querySelector('#commit-list');
   const switchBranch = document.querySelector('#switch-branch');
+  const hoverCard = document.querySelector('#hover-card');
   let selectedButton;
+  let hoveredButton;
+  let hideHoverTimer;
   let lastPayload;
   let lastHasMore = false;
   let loadMoreSent = false;
@@ -64,13 +67,89 @@
     return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(timestamp);
   };
 
-  const appendMeta = (card, label, value) => {
-    const term = document.createElement('dt');
-    term.textContent = label;
-    const detail = document.createElement('dd');
-    detail.textContent = value;
-    card.append(term, detail);
-    return detail;
+  const cancelHideHover = () => {
+    if (hideHoverTimer) {
+      clearTimeout(hideHoverTimer);
+      hideHoverTimer = undefined;
+    }
+  };
+
+  const hideHover = () => {
+    cancelHideHover();
+    hoveredButton?.removeAttribute('aria-describedby');
+    hoveredButton = undefined;
+    hoverCard.classList.add('hidden');
+  };
+
+  const scheduleHideHover = () => {
+    cancelHideHover();
+    hideHoverTimer = setTimeout(hideHover, 100);
+  };
+
+  const positionHover = () => {
+    if (!hoveredButton || hoverCard.classList.contains('hidden')) return;
+
+    const rowRect = hoveredButton.getBoundingClientRect();
+    const cardRect = hoverCard.getBoundingClientRect();
+    const gap = 8;
+    const edge = 8;
+    const anchorX = rowRect.left + rowRect.width / 2;
+    const left = Math.min(
+      window.innerWidth - cardRect.width - edge,
+      Math.max(edge, anchorX - cardRect.width / 2),
+    );
+    const fitsBelow = rowRect.bottom + gap + cardRect.height <= window.innerHeight - edge;
+    const top = fitsBelow
+      ? rowRect.bottom + gap
+      : Math.max(edge, rowRect.top - gap - cardRect.height);
+
+    hoverCard.style.left = `${left}px`;
+    hoverCard.style.top = `${top}px`;
+    hoverCard.style.setProperty(
+      '--caret-left',
+      `${Math.max(8, Math.min(cardRect.width - 8, anchorX - left))}px`,
+    );
+    hoverCard.classList.toggle('caret-top', fitsBelow);
+    hoverCard.classList.toggle('caret-bottom', !fitsBelow);
+  };
+
+  const showHover = (button, commit, branch) => {
+    cancelHideHover();
+    if (hoveredButton !== button) {
+      hoveredButton?.removeAttribute('aria-describedby');
+    }
+    hoveredButton = button;
+    button.setAttribute('aria-describedby', 'hover-card');
+
+    const primary = document.createElement('p');
+    primary.className = 'card-primary';
+    primary.append(document.createTextNode(`${commit.authorName} · `));
+    const time = document.createElement('span');
+    time.textContent = formatTime(commit.authorDateIso);
+    time.title = commit.authorDateIso;
+    primary.append(time);
+
+    const details = document.createElement('p');
+    details.className = 'card-details';
+    details.append(document.createTextNode(`${commit.id.slice(0, 7)} · `));
+    appendTextElement(details, 'span', 'additions', `+${commit.additions}`);
+    details.append(document.createTextNode(' / '));
+    appendTextElement(details, 'span', 'deletions', `−${commit.deletions}`);
+
+    const message = document.createElement('p');
+    message.className = 'card-message';
+    message.textContent = commit.fullMessage;
+
+    const children = [primary, details, message];
+    if (branch) {
+      const branchLine = document.createElement('p');
+      branchLine.className = 'card-branch';
+      branchLine.textContent = branch;
+      children.push(branchLine);
+    }
+    hoverCard.replaceChildren(...children);
+    hoverCard.classList.remove('hidden');
+    positionHover();
   };
 
   const createCommit = (commit, branch) => {
@@ -91,21 +170,6 @@
     appendTextElement(copy, 'span', 'subject', commit.subject);
     button.append(graphCell, copy);
 
-    const card = document.createElement('aside');
-    card.className = 'hover-card';
-    appendTextElement(card, 'p', 'card-message', commit.fullMessage);
-    const meta = document.createElement('dl');
-    meta.className = 'card-meta';
-    appendMeta(meta, 'Author', commit.authorName);
-    const time = appendMeta(meta, 'Time', formatTime(commit.authorDateIso));
-    time.title = commit.authorDateIso;
-    const changes = appendMeta(meta, 'Changes', '');
-    appendTextElement(changes, 'span', 'additions', `+${commit.additions}`);
-    appendTextElement(changes, 'span', 'deletions', `−${commit.deletions}`);
-    appendMeta(meta, 'Branch', branch);
-    appendMeta(meta, 'Commit', commit.id);
-    card.append(meta);
-
     button.addEventListener('click', () => {
       if (selectedButton) selectedButton.removeAttribute('aria-current');
       button.setAttribute('aria-current', 'true');
@@ -113,7 +177,12 @@
       vscode.postMessage({ type: 'commitSelected', commitId: commit.id });
     });
 
-    item.append(button, card);
+    item.addEventListener('mouseenter', () => showHover(button, commit, branch));
+    item.addEventListener('mouseleave', scheduleHideHover);
+    button.addEventListener('focus', () => showHover(button, commit, branch));
+    button.addEventListener('blur', scheduleHideHover);
+
+    item.append(button);
     return item;
   };
 
@@ -194,6 +263,7 @@
   };
 
   const showStatus = (message, retryable) => {
+    hideHover();
     selectedButton = undefined;
     content.classList.add('hidden');
     status.classList.remove('hidden');
@@ -209,6 +279,7 @@
   };
 
   const renderCommits = (message) => {
+    hideHover();
     const savedScrollTop = isGrowingReplacement(message)
       ? scrollContainer().scrollTop
       : null;
@@ -252,6 +323,7 @@
   window.addEventListener(
     'scroll',
     () => {
+      positionHover();
       if (!nearBottom()) {
         loadMoreSent = false;
         return;
@@ -260,6 +332,10 @@
     },
     { passive: true },
   );
+
+  window.addEventListener('resize', positionHover);
+  hoverCard.addEventListener('mouseenter', cancelHideHover);
+  hoverCard.addEventListener('mouseleave', scheduleHideHover);
 
   window.addEventListener('message', ({ data }) => {
     if (!data || typeof data !== 'object' || typeof data.type !== 'string') return;
