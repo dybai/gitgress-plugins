@@ -11,38 +11,63 @@ const validCommit = {
   additions: 1,
   deletions: 0,
   parentIds: ['def'],
+  lane: 0,
+  colorIndex: 1,
 };
 
+const validEdge = {
+  fromRow: 0,
+  toRow: 1,
+  fromLane: 0,
+  toLane: 0,
+  colorIndex: 1,
+  truncated: false,
+};
+
+function validCommitsLoaded(overrides: Record<string, unknown> = {}) {
+  return {
+    type: 'commitsLoaded' as const,
+    branch: 'main',
+    commits: [validCommit],
+    edges: [validEdge],
+    laneCount: 2,
+    hasMore: false,
+    mode: 'replace' as const,
+    ...overrides,
+  };
+}
+
 describe('isHostMessage', () => {
-  it('accepts commitsLoaded with parentIds', () => {
+  it('accepts commitsLoaded with graph and pagination fields', () => {
     expect(
-      isHostMessage({
-        type: 'commitsLoaded',
-        branch: 'main',
-        commits: [{ ...validCommit, parentIds: [] }, validCommit],
-      }),
+      isHostMessage(
+        validCommitsLoaded({
+          commits: [{ ...validCommit, parentIds: [] }, validCommit],
+          hasMore: true,
+          mode: 'append',
+        }),
+      ),
     ).toBe(true);
   });
 
   it('rejects commitsLoaded when parentIds is missing', () => {
     const { parentIds: _, ...withoutParents } = validCommit;
-    expect(
-      isHostMessage({
-        type: 'commitsLoaded',
-        branch: 'main',
-        commits: [withoutParents],
-      }),
-    ).toBe(false);
+    expect(isHostMessage(validCommitsLoaded({ commits: [withoutParents] }))).toBe(false);
   });
 
   it('rejects commitsLoaded when parentIds contains empty strings', () => {
     expect(
-      isHostMessage({
-        type: 'commitsLoaded',
-        branch: 'main',
-        commits: [{ ...validCommit, parentIds: [''] }],
-      }),
+      isHostMessage(validCommitsLoaded({ commits: [{ ...validCommit, parentIds: [''] }] })),
     ).toBe(false);
+  });
+
+  it('rejects commitsLoaded when hasMore is missing', () => {
+    const { hasMore: _, ...withoutHasMore } = validCommitsLoaded();
+    expect(isHostMessage(withoutHasMore)).toBe(false);
+  });
+
+  it('rejects commitsLoaded with invalid mode', () => {
+    expect(isHostMessage(validCommitsLoaded({ mode: 'merge' }))).toBe(false);
   });
 });
 
@@ -57,5 +82,9 @@ describe('isWebviewToHost', () => {
 
   it('rejects commitSelected without commitId', () => {
     expect(isWebviewToHost({ type: 'commitSelected' })).toBe(false);
+  });
+
+  it('accepts loadMore', () => {
+    expect(isWebviewToHost({ type: 'loadMore' })).toBe(true);
   });
 });

@@ -1,3 +1,12 @@
+export type GraphEdgeDto = {
+  fromRow: number;
+  toRow: number;
+  fromLane: number;
+  toLane: number;
+  colorIndex: number;
+  truncated: boolean;
+};
+
 export type CommitDto = {
   id: string;
   subject: string;
@@ -7,6 +16,8 @@ export type CommitDto = {
   additions: number;
   deletions: number;
   parentIds: string[];
+  lane: number;
+  colorIndex: number;
 };
 
 export type HostToWebview =
@@ -14,6 +25,10 @@ export type HostToWebview =
       type: 'commitsLoaded';
       branch: string;
       commits: CommitDto[];
+      edges: GraphEdgeDto[];
+      laneCount: number;
+      hasMore: boolean;
+      mode: 'replace' | 'append';
       selectedCommitId?: string | null;
     }
   | { type: 'empty'; reason: 'noRepo' | 'noCommits' | 'error'; message?: string }
@@ -23,7 +38,8 @@ export type WebviewToHost =
   | { type: 'ready' }
   | { type: 'commitSelected'; commitId: string }
   | { type: 'switchBranch' }
-  | { type: 'retry' };
+  | { type: 'retry' }
+  | { type: 'loadMore' };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -31,6 +47,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0;
+}
+
+function isGraphEdgeDto(value: unknown): value is GraphEdgeDto {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return (
+    typeof value.fromRow === 'number' &&
+    typeof value.toRow === 'number' &&
+    typeof value.fromLane === 'number' &&
+    typeof value.toLane === 'number' &&
+    typeof value.colorIndex === 'number' &&
+    typeof value.truncated === 'boolean'
+  );
 }
 
 function isCommitDto(value: unknown): value is CommitDto {
@@ -46,7 +76,9 @@ function isCommitDto(value: unknown): value is CommitDto {
     typeof value.additions === 'number' &&
     typeof value.deletions === 'number' &&
     Array.isArray(value.parentIds) &&
-    value.parentIds.every(isNonEmptyString)
+    value.parentIds.every(isNonEmptyString) &&
+    typeof value.lane === 'number' &&
+    typeof value.colorIndex === 'number'
   );
 }
 
@@ -59,7 +91,15 @@ export function isHostMessage(value: unknown): value is HostToWebview {
       return (
         typeof value.branch === 'string' &&
         Array.isArray(value.commits) &&
-        value.commits.every(isCommitDto)
+        value.commits.every(isCommitDto) &&
+        Array.isArray(value.edges) &&
+        value.edges.every(isGraphEdgeDto) &&
+        typeof value.laneCount === 'number' &&
+        typeof value.hasMore === 'boolean' &&
+        (value.mode === 'replace' || value.mode === 'append') &&
+        (value.selectedCommitId === undefined ||
+          value.selectedCommitId === null ||
+          isNonEmptyString(value.selectedCommitId))
       );
     case 'empty': {
       const reason = value.reason;
@@ -83,6 +123,7 @@ export function isWebviewToHost(value: unknown): value is WebviewToHost {
     case 'ready':
     case 'switchBranch':
     case 'retry':
+    case 'loadMore':
       return true;
     case 'commitSelected':
       return isNonEmptyString(value.commitId);

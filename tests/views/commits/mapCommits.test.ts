@@ -32,19 +32,29 @@ describe('truncateSubject', () => {
 });
 
 describe('toCommitDto', () => {
+  const layout = { lane: 2, colorIndex: 3 };
+
   it('maps a commit and truncates its displayed subject', () => {
     const longCommit = { ...commit, subject: 'x'.repeat(80) };
 
-    expect(toCommitDto(longCommit)).toEqual({
-      ...longCommit,
+    expect(toCommitDto(longCommit, layout)).toEqual({
+      id: longCommit.id,
       subject: `${'x'.repeat(71)}…`,
+      authorName: longCommit.authorName,
+      authorDateIso: longCommit.authorDateIso,
+      fullMessage: longCommit.fullMessage,
+      additions: longCommit.additions,
+      deletions: longCommit.deletions,
+      parentIds: longCommit.parentIds,
+      lane: layout.lane,
+      colorIndex: layout.colorIndex,
     });
   });
 
   it('does not mutate the source commit', () => {
     const source = { ...commit, subject: 'x'.repeat(80) };
 
-    toCommitDto(source);
+    toCommitDto(source, layout);
 
     expect(source.subject).toBe('x'.repeat(80));
   });
