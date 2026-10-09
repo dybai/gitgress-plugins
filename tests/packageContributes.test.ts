@@ -7,6 +7,7 @@ describe('package contributes', () => {
     const files = pkg.contributes.views.gitgress.find(
       (v: { id: string }) => v.id === 'gitgress.files',
     );
-    expect(files.type).toBe('webview');
+    expect(files).toBeDefined();
+    expect(files!.type).toBe('webview');
   });
 });

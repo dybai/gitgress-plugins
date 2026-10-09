@@ -64,9 +64,10 @@ host code.
 The Files panel is a custom webview (not a native TreeView). After you select a
 commit in Commits:
 
-- **Layout:** Toggle **List**, **Tree**, or **Auto** in the view chrome. **Auto**
-  uses a flat list when there are fewer than five changed paths, otherwise a
-  tree. The choice persists per workspace (`gitgress.files.layout`).
+- **Layout:** Toggle **List**, **Tree**, or **Auto** in the view chrome. Each
+  click cycles **Auto → List → Tree → Auto**. **Auto** uses a flat list when
+  there are five or fewer changed paths, otherwise a tree. The choice persists
+  per workspace (`gitgress.files.layout`).
 - **Tree mode:** Paths are shown in compact form (empty intermediate folders are
   not expanded as separate rows).
 - **Row content:** Each row shows status letters and `+N` / `−M` line counts.
