@@ -13,7 +13,7 @@ import { GitService } from './git/GitService';
 import { createRunGit } from './git/runGit';
 import { SelectionState } from './state/SelectionState';
 import { CommitsViewProvider } from './views/commits/CommitsViewProvider';
-import { ChangedFilesTreeProvider } from './views/files/ChangedFilesTreeProvider';
+import { FilesViewProvider } from './views/files/FilesViewProvider';
 
 export function activate(context: vscode.ExtensionContext): void {
   const gitService = new GitService(createRunGit());
@@ -24,7 +24,13 @@ export function activate(context: vscode.ExtensionContext): void {
     selection,
     gitService,
   );
-  const filesProvider = new ChangedFilesTreeProvider(selection, gitService);
+  const filesProvider = new FilesViewProvider(
+    context.extensionUri,
+    context.workspaceState,
+    selection,
+    gitService,
+    diffService,
+  );
 
   const showError = async (error: unknown): Promise<void> => {
     await vscode.window.showErrorMessage(gitErrorMessage(error));
@@ -63,7 +69,9 @@ export function activate(context: vscode.ExtensionContext): void {
       commitsProvider,
       { webviewOptions: { retainContextWhenHidden: true } },
     ),
-    vscode.window.registerTreeDataProvider('gitgress.files', filesProvider),
+    vscode.window.registerWebviewViewProvider('gitgress.files', filesProvider, {
+      webviewOptions: { retainContextWhenHidden: true },
+    }),
     vscode.workspace.registerTextDocumentContentProvider(
       GITGRESS_SCHEME,
       new GitgressContentProvider(gitService),

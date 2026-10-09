@@ -22,7 +22,7 @@
     "views": {
       "gitgress": [
         { "type": "webview", "id": "gitgress.commits", "name": "Commits" },
-        { "id": "gitgress.files", "name": "Files" }
+        { "type": "webview", "id": "gitgress.files", "name": "Files" }
       ]
     },
     "commands": [

@@ -10,6 +10,7 @@ mkdirSync(outdir, { recursive: true });
 await esbuild.build({
   entryPoints: {
     commits: join(root, 'webview', 'commits', 'main.js'),
+    files: join(root, 'webview', 'files', 'main.ts'),
   },
   bundle: true,
   format: 'iife',
@@ -21,3 +22,5 @@ await esbuild.build({
 
 cpSync(join(root, 'webview', 'commits', 'styles.css'), join(outdir, 'commits.css'));
 cpSync(join(root, 'webview', 'commits', 'index.html'), join(outdir, 'commits.html'));
+cpSync(join(root, 'webview', 'files', 'styles.css'), join(outdir, 'files.css'));
+cpSync(join(root, 'webview', 'files', 'index.html'), join(outdir, 'files.html'));
