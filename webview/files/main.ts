@@ -9,7 +9,10 @@ import type {
 import { buildFileList } from '../../src/views/files/buildFileList';
 import { buildFileTree, type FileTreeNode } from '../../src/views/files/buildFileTree';
 import { wireOpenButton, wireTreeSelection } from '../../src/views/files/treeInteraction';
-import { cycleFilesLayout } from '../../src/views/files/cycleFilesLayout';
+import {
+  layoutToggleIntent,
+  rowDoubleClickIntent,
+} from '../../src/views/files/filesWebviewIntents';
 import {
   fileTooltip,
   formatAdditions,
@@ -278,15 +281,12 @@ contentEl.addEventListener('click', (event) => {
 });
 
 contentEl.addEventListener('dblclick', (event) => {
-  if (
+  const onOpenButton =
     event.target instanceof Element &&
-    event.target.closest('button[data-action="open"]') !== null
-  ) {
-    return;
-  }
-  const path = rowPath(event.target);
-  if (path !== undefined) {
-    send({ type: 'openFileDiff', path });
+    event.target.closest('button[data-action="open"]') !== null;
+  const intent = rowDoubleClickIntent(rowPath(event.target), onOpenButton);
+  if (intent !== undefined) {
+    send(intent);
   }
 });
 
@@ -303,10 +303,10 @@ contentEl.addEventListener('keydown', (event) => {
 });
 
 layoutButton.addEventListener('click', () => {
-  if (loaded === null) {
-    return;
+  const intent = layoutToggleIntent(loaded?.layoutPreference ?? null);
+  if (intent !== undefined) {
+    send(intent);
   }
-  send({ type: 'setLayout', layout: cycleFilesLayout(loaded.layoutPreference) });
 });
 
 window.addEventListener('message', (event: MessageEvent<HostToFilesWebview>) => {

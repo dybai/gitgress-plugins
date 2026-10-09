@@ -12,13 +12,12 @@ import {
 import type { SelectionSnapshot, SelectionState } from '../../state/SelectionState';
 import { buildFilesMessage } from './buildFilesPayload';
 import { matchesSelection, resolveLoadedTarget, type LoadedFiles } from './loadedFiles';
-import type { FilesLayoutPreference } from './resolveFilesLayout';
+import { normalizeFilesLayoutPreference, type FilesLayoutPreference } from './resolveFilesLayout';
 
 export const FILES_LAYOUT_KEY = 'gitgress.files.layout';
 
 function readLayout(state: vscode.Memento): FilesLayoutPreference {
-  const value = state.get<unknown>(FILES_LAYOUT_KEY, 'auto');
-  return value === 'list' || value === 'tree' || value === 'auto' ? value : 'auto';
+  return normalizeFilesLayoutPreference(state.get<unknown>(FILES_LAYOUT_KEY, 'auto'));
 }
 
 export class FilesViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
