@@ -7,6 +7,8 @@
   const switchBranch = document.querySelector('#switch-branch');
   let selectedButton;
   let lastPayload;
+  let lastHasMore = false;
+  let loadMoreSent = false;
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const MAX_LANES = 10;
@@ -179,6 +181,18 @@
 
   const scrollContainer = () => document.scrollingElement || document.documentElement;
 
+  const nearBottom = () => {
+    const el = scrollContainer();
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  };
+
+  const maybeRequestLoadMore = () => {
+    if (!lastHasMore || loadMoreSent) return;
+    if (!nearBottom()) return;
+    loadMoreSent = true;
+    vscode.postMessage({ type: 'loadMore' });
+  };
+
   const showStatus = (message, retryable) => {
     selectedButton = undefined;
     content.classList.add('hidden');
@@ -235,10 +249,25 @@
   });
   resizeObserver.observe(commitList);
 
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (!nearBottom()) {
+        loadMoreSent = false;
+        return;
+      }
+      maybeRequestLoadMore();
+    },
+    { passive: true },
+  );
+
   window.addEventListener('message', ({ data }) => {
     if (!data || typeof data !== 'object' || typeof data.type !== 'string') return;
     if (data.type === 'commitsLoaded' && Array.isArray(data.commits)) {
       renderCommits(data);
+      lastHasMore = data.hasMore === true;
+      loadMoreSent = false;
+      maybeRequestLoadMore();
       return;
     }
     if (data.type === 'selectionCleared') {
@@ -247,6 +276,8 @@
       return;
     }
     if (data.type === 'empty') {
+      lastHasMore = false;
+      loadMoreSent = false;
       const messages = {
         noRepo: 'Open a folder containing a Git repository.',
         noCommits: 'No commits found on this branch.',
