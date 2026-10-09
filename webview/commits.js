@@ -9,6 +9,9 @@
   let selectedButton;
   let hoveredButton;
   let hideHoverTimer;
+  let showHoverTimer;
+  const HOVER_OPEN_DELAY_MS = 500;
+  const HOVER_SWITCH_DELAY_MS = 200;
   let lastPayload;
   let lastHasMore = false;
   let loadMoreSent = false;
@@ -74,14 +77,23 @@
     }
   };
 
+  const cancelShowHover = () => {
+    if (showHoverTimer) {
+      clearTimeout(showHoverTimer);
+      showHoverTimer = undefined;
+    }
+  };
+
   const hideHover = () => {
     cancelHideHover();
+    cancelShowHover();
     hoveredButton?.removeAttribute('aria-describedby');
     hoveredButton = undefined;
     hoverCard.classList.add('hidden');
   };
 
   const scheduleHideHover = () => {
+    cancelShowHover();
     cancelHideHover();
     hideHoverTimer = setTimeout(hideHover, 100);
   };
@@ -156,6 +168,18 @@
     positionHover();
   };
 
+  const scheduleShowHover = (button, commit, branch) => {
+    cancelShowHover();
+    cancelHideHover();
+    const delay = hoverCard.classList.contains('hidden')
+      ? HOVER_OPEN_DELAY_MS
+      : HOVER_SWITCH_DELAY_MS;
+    showHoverTimer = setTimeout(() => {
+      showHoverTimer = undefined;
+      showHover(button, commit, branch);
+    }, delay);
+  };
+
   const createCommit = (commit, branch) => {
     const item = document.createElement('li');
     item.className = 'commit';
@@ -181,7 +205,7 @@
       vscode.postMessage({ type: 'commitSelected', commitId: commit.id });
     });
 
-    item.addEventListener('mouseenter', () => showHover(button, commit, branch));
+    item.addEventListener('mouseenter', () => scheduleShowHover(button, commit, branch));
     item.addEventListener('mouseleave', scheduleHideHover);
     button.addEventListener('focus', () => showHover(button, commit, branch));
     button.addEventListener('blur', scheduleHideHover);

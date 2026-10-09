@@ -36,6 +36,13 @@ describe('commits hover overlay assets', () => {
 
   it('uses fixed overlay hover card CSS without in-flow hover display rule', () => {
     expect(css).toMatch(/\.hover-card\s*\{[\s\S]*position:\s*fixed/);
+    expect(css).toMatch(/\.hover-card\s*\{[\s\S]*max-height:\s*50vh/);
     expect(css).not.toMatch(/\.commit:hover\s+\.hover-card/);
+  });
+
+  it('delays first hover open and hover switch', () => {
+    expect(source).toMatch(/HOVER_OPEN_DELAY_MS\s*=\s*500/);
+    expect(source).toMatch(/HOVER_SWITCH_DELAY_MS\s*=\s*200/);
+    expect(source).toMatch(/scheduleShowHover/);
   });
 });
