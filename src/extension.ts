@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { registerOpenFileDiff } from './commands/openFileDiff';
+import { gitErrorMessage, refreshRepository } from './commands/refresh';
+import { switchBranch } from './commands/switchBranch';
 import { DiffService } from './diff/DiffService';
 import { GITGRESS_SCHEME } from './diff/gitgressUri';
 import { GitgressContentProvider } from './diff/GitgressContentProvider';
@@ -20,6 +22,24 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   const filesProvider = new ChangedFilesTreeProvider(selection, gitService);
 
+  const showError = async (error: unknown): Promise<void> => {
+    await vscode.window.showErrorMessage(gitErrorMessage(error));
+  };
+  const reloadRepository = async (): Promise<void> => {
+    try {
+      await refreshRepository(
+        gitService,
+        selection,
+        vscode.workspace.workspaceFolders ?? [],
+      );
+      commitsProvider.refresh();
+      filesProvider.refresh();
+    } catch (error) {
+      selection.setRepo(null);
+      await showError(error);
+    }
+  };
+
   context.subscriptions.push(
     commitsProvider,
     filesProvider,
@@ -34,7 +54,18 @@ export function activate(context: vscode.ExtensionContext): void {
       new GitgressContentProvider(gitService),
     ),
     registerOpenFileDiff(selection, diffService),
+    vscode.commands.registerCommand('gitgress.switchBranch', async () => {
+      try {
+        await switchBranch(gitService, selection, vscode.window.showQuickPick);
+      } catch (error) {
+        await showError(error);
+      }
+    }),
+    vscode.commands.registerCommand('gitgress.refresh', reloadRepository),
+    vscode.workspace.onDidChangeWorkspaceFolders(reloadRepository),
   );
+
+  void reloadRepository();
 }
 
 export function deactivate(): void {}

@@ -31,6 +31,12 @@
       { "command": "gitgress.openFileDiff", "title": "Gitgress: Open File Diff" }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "gitgress.openFileDiff",
+          "when": "false"
+        }
+      ],
       "view/title": [
         {
           "command": "gitgress.switchBranch",
