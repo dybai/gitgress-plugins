@@ -1,4 +1,9 @@
-(() => {
+import {
+  computePageStep,
+  isCommitNavKey,
+  nextCommitIndex,
+} from '../../src/views/commits/commitKeyboardNav.ts';
+
   const vscode = acquireVsCodeApi();
   const status = document.querySelector('#status');
   const content = document.querySelector('#content');
@@ -180,6 +185,16 @@
     }, delay);
   };
 
+  const selectCommitButton = (button) => {
+    if (!(button instanceof HTMLButtonElement)) return;
+    const commitId = button.dataset.commitId;
+    if (typeof commitId !== 'string' || commitId.length === 0) return;
+    if (selectedButton) selectedButton.removeAttribute('aria-current');
+    button.setAttribute('aria-current', 'true');
+    selectedButton = button;
+    vscode.postMessage({ type: 'commitSelected', commitId });
+  };
+
   const createCommit = (commit, branch) => {
     const item = document.createElement('li');
     item.className = 'commit';
@@ -198,12 +213,7 @@
     appendTextElement(copy, 'span', 'subject', commit.subject);
     button.append(graphCell, copy);
 
-    button.addEventListener('click', () => {
-      if (selectedButton) selectedButton.removeAttribute('aria-current');
-      button.setAttribute('aria-current', 'true');
-      selectedButton = button;
-      vscode.postMessage({ type: 'commitSelected', commitId: commit.id });
-    });
+    button.addEventListener('click', () => selectCommitButton(button));
 
     item.addEventListener('mouseenter', () => scheduleShowHover(button, commit, branch));
     item.addEventListener('mouseleave', scheduleHideHover);
@@ -396,5 +406,37 @@
     vscode.postMessage({ type: 'switchBranch' });
   });
 
+  window.addEventListener('keydown', (event) => {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    if (!isCommitNavKey(event.key)) return;
+    if (!selectedButton) return;
+
+    const buttons = [...commitList.querySelectorAll('.commit-button')];
+    const currentIndex = buttons.indexOf(selectedButton);
+    if (currentIndex < 0 || buttons.length === 0) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const row = selectedButton.closest('.commit');
+    const rowHeight =
+      (row instanceof HTMLElement ? row.offsetHeight : 0) ||
+      selectedButton.offsetHeight ||
+      0;
+    const viewportHeight =
+      (document.scrollingElement || document.documentElement).clientHeight;
+    const pageStep = computePageStep(viewportHeight, rowHeight);
+    const nextIndex = nextCommitIndex(currentIndex, event.key, {
+      length: buttons.length,
+      pageStep,
+    });
+    if (nextIndex === currentIndex) return;
+
+    const nextButton = buttons[nextIndex];
+    if (!(nextButton instanceof HTMLButtonElement)) return;
+    selectCommitButton(nextButton);
+    nextButton.focus({ preventScroll: true });
+    nextButton.scrollIntoView({ block: 'nearest' });
+  });
+
   vscode.postMessage({ type: 'ready' });
-})();
