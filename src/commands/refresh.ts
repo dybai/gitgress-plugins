@@ -20,7 +20,7 @@ export function gitErrorMessage(error: unknown): string {
 }
 
 export async function refreshRepository(
-  gitService: Pick<GitService, 'resolveRepo' | 'currentBranch'>,
+  gitService: Pick<GitService, 'resolveRepo' | 'currentBranch' | 'listBranches'>,
   selection: Pick<SelectionState, 'getSnapshot' | 'setRepo' | 'setBranch'>,
   workspaceFolders: readonly WorkspaceFolder[],
 ): Promise<void> {
@@ -33,7 +33,14 @@ export async function refreshRepository(
   }
 
   const currentBranch = (await gitService.currentBranch(repoRoot)) || null;
-  if (selection.getSnapshot().branch !== currentBranch) {
+  const { branch } = selection.getSnapshot();
+  if (branch === null) {
+    selection.setBranch(currentBranch);
+    return;
+  }
+
+  const branches = await gitService.listBranches(repoRoot);
+  if (!branches.includes(branch)) {
     selection.setBranch(currentBranch);
   }
 }

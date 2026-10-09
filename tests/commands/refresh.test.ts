@@ -7,6 +7,7 @@ describe('refreshRepository', () => {
     const gitService = {
       resolveRepo: vi.fn(async () => '/repo'),
       currentBranch: vi.fn(async () => 'main'),
+      listBranches: vi.fn(async () => ['main']),
     };
     const selection = {
       getSnapshot: vi.fn(() => ({
@@ -51,10 +52,54 @@ describe('refreshRepository', () => {
     expect(selection.setBranch).not.toHaveBeenCalled();
   });
 
+  it('does not reset display branch when HEAD differs after switchBranch', async () => {
+    const gitService = {
+      resolveRepo: vi.fn(async () => '/repo'),
+      currentBranch: vi.fn(async () => 'main'),
+      listBranches: vi.fn(async () => ['main', 'feature']),
+    };
+    const selection = {
+      getSnapshot: vi.fn(() => ({
+        repoRoot: '/repo',
+        branch: 'feature',
+        selectedCommitId: null,
+      })),
+      setRepo: vi.fn(),
+      setBranch: vi.fn(),
+    };
+
+    await refreshRepository(gitService, selection, [{ uri: { fsPath: '/repo' } }]);
+
+    expect(selection.setRepo).toHaveBeenCalledWith('/repo');
+    expect(selection.setBranch).not.toHaveBeenCalled();
+  });
+
+  it('falls back to HEAD when the display branch no longer exists', async () => {
+    const gitService = {
+      resolveRepo: vi.fn(async () => '/repo'),
+      currentBranch: vi.fn(async () => 'main'),
+      listBranches: vi.fn(async () => ['main']),
+    };
+    const selection = {
+      getSnapshot: vi.fn(() => ({
+        repoRoot: '/repo',
+        branch: 'deleted-feature',
+        selectedCommitId: null,
+      })),
+      setRepo: vi.fn(),
+      setBranch: vi.fn(),
+    };
+
+    await refreshRepository(gitService, selection, [{ uri: { fsPath: '/repo' } }]);
+
+    expect(selection.setBranch).toHaveBeenCalledWith('main');
+  });
+
   it('preserves selection when the resolved repository and branch are unchanged', async () => {
     const gitService = {
       resolveRepo: vi.fn(async () => '/repo'),
       currentBranch: vi.fn(async () => 'main'),
+      listBranches: vi.fn(async () => ['main']),
     };
     const selection = {
       getSnapshot: vi.fn(() => ({
