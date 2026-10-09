@@ -47,7 +47,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     view.webview.options = {
       enableScripts: true,
       localResourceRoots: [
-        vscode.Uri.joinPath(this.extensionUri, 'webview'),
+        vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview'),
         vscode.Uri.joinPath(this.extensionUri, 'media'),
       ],
     };
@@ -238,12 +238,12 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
   }
 
   private getHtml(webview: vscode.Webview): string {
-    const htmlPath = vscode.Uri.joinPath(this.extensionUri, 'webview', 'commits.html');
+    const htmlPath = vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'commits.html');
     const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'webview', 'commits.css'),
+      vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'commits.css'),
     );
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.extensionUri, 'webview', 'commits.js'),
+      vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview', 'commits.js'),
     );
 
     return fs

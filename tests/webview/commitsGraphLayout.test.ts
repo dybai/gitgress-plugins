@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const webviewDir = join(process.cwd(), 'webview');
-const source = readFileSync(join(webviewDir, 'commits.js'), 'utf8');
-const html = readFileSync(join(webviewDir, 'commits.html'), 'utf8');
-const css = readFileSync(join(webviewDir, 'commits.css'), 'utf8');
+const webviewDir = join(process.cwd(), 'webview', 'commits');
+const source = readFileSync(join(webviewDir, 'main.js'), 'utf8');
+const html = readFileSync(join(webviewDir, 'index.html'), 'utf8');
+const css = readFileSync(join(webviewDir, 'styles.css'), 'utf8');
 
 describe('commits graph DOM layout', () => {
   it('positions graph nodes from each commit row instead of the button offset parent', () => {

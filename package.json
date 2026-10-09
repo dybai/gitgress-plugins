@@ -52,7 +52,9 @@
     }
   },
   "scripts": {
-    "compile": "tsc -p ./",
+    "build:webview": "node scripts/build-webview.mjs",
+    "watch:webview": "node scripts/build-webview.mjs --watch",
+    "compile": "npm run build:webview && tsc -p ./",
     "watch": "tsc -watch -p ./",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -61,6 +63,7 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
+    "esbuild": "^0.25.0",
     "typescript": "^5.4.0",
     "vitest": "^2.0.0"
   }
