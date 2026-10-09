@@ -22,6 +22,8 @@ the bottom to load older commits until history is exhausted. Use the branch and
 refresh buttons in the view title; either action resets the list from the
 newest commits. Hover or focus a commit row for the overlay tooltip. Selecting
 a commit populates the Files view (first-parent changed paths, same as diffs).
+With a commit selected, Arrow keys, Home, End, PageUp, and PageDown move the
+selection and sync the Files view instead of scrolling the list.
 
 ## Architecture
 
@@ -90,6 +92,7 @@ history such as `fintech-service`):
 - [ ] Merge forks are visible in the commit graph (multi-lane layout).
 - [ ] Scrolling down loads more commits until no further pages remain.
 - [ ] Hover overlay follows the row without layout jump and shows no avatar.
+- [ ] With a commit selected, Arrow/Home/End/PageUp/PageDown move selection and sync Files (no list scroll).
 - [ ] Branch switch or refresh clears pagination and reloads from HEAD.
 - [ ] Commit hover content includes the complete specified fields.
 - [ ] Commits still works (graph, scroll, hover) from bundled assets.
