@@ -1,0 +1,60 @@
+{
+  "name": "gitgress",
+  "displayName": "Gitgress",
+  "description": "Linear git history, changed files, and parent-commit diffs",
+  "version": "0.1.0",
+  "publisher": "pg-dybai",
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["SCM Providers", "Other"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "gitgress",
+          "title": "Gitgress",
+          "icon": "media/gitgress-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "gitgress": [
+        { "type": "webview", "id": "gitgress.commits", "name": "Commits" },
+        { "id": "gitgress.files", "name": "Files" }
+      ]
+    },
+    "commands": [
+      { "command": "gitgress.switchBranch", "title": "Gitgress: Switch Branch", "icon": "$(git-branch)" },
+      { "command": "gitgress.refresh", "title": "Gitgress: Refresh", "icon": "$(refresh)" }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "gitgress.switchBranch",
+          "when": "view == gitgress.commits",
+          "group": "navigation"
+        },
+        {
+          "command": "gitgress.refresh",
+          "when": "view == gitgress.commits || view == gitgress.files",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.0.0"
+  }
+}
