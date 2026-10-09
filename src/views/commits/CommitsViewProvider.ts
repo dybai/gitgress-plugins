@@ -7,6 +7,7 @@ import {
   type WebviewToHost,
 } from '../../protocol/messages';
 import type { SelectionSnapshot, SelectionState } from '../../state/SelectionState';
+import { layoutCommitGraph } from '../../graph/layoutCommitGraph';
 import { toCommitDto } from './mapCommits';
 import {
   shouldReloadCommits,
@@ -114,11 +115,20 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
         this.applyMessage({ type: 'empty', reason: 'noCommits' }, version, view);
         return;
       }
+      const graph = layoutCommitGraph(commits);
+      const layoutById = new Map(graph.commits.map((entry) => [entry.id, entry]));
       this.applyMessage(
         {
           type: 'commitsLoaded',
           branch,
-          commits: commits.map(toCommitDto),
+          commits: commits.map((row) => {
+            const layout = layoutById.get(row.id)!;
+            return toCommitDto(row, { lane: layout.lane, colorIndex: layout.colorIndex });
+          }),
+          edges: graph.edges,
+          laneCount: graph.laneCount,
+          hasMore: commits.length === 100,
+          mode: 'replace',
           selectedCommitId,
         },
         version,
