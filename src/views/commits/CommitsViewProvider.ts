@@ -8,11 +8,16 @@ import {
 } from '../../protocol/messages';
 import type { SelectionSnapshot, SelectionState } from '../../state/SelectionState';
 import { toCommitDto } from './mapCommits';
+import {
+  shouldReloadCommits,
+  type CommitsLoadContext,
+} from './shouldReloadCommits';
 
 export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   private view: vscode.WebviewView | undefined;
   private readonly unsubscribe: () => void;
   private lastLoadedCommitIds = new Set<string>();
+  private lastLoadContext: CommitsLoadContext | null = null;
   private loadVersion = 0;
 
   constructor(
@@ -21,6 +26,9 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     private readonly gitService: GitService,
   ) {
     this.unsubscribe = selection.subscribe((snapshot) => {
+      if (!shouldReloadCommits(this.lastLoadContext, snapshot)) {
+        return;
+      }
       void this.load(snapshot);
     });
   }
@@ -45,6 +53,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
       if (this.view === view) {
         this.view = undefined;
         this.lastLoadedCommitIds.clear();
+        this.lastLoadContext = null;
       }
     });
   }
@@ -57,6 +66,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     this.unsubscribe();
     this.view = undefined;
     this.lastLoadedCommitIds.clear();
+    this.lastLoadContext = null;
   }
 
   private async handleMessage(message: WebviewToHost): Promise<void> {
@@ -83,7 +93,8 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     }
 
     const version = ++this.loadVersion;
-    const { repoRoot, branch } = snapshot;
+    const { repoRoot, branch, selectedCommitId } = snapshot;
+    this.lastLoadContext = { repoRoot, branch };
     if (repoRoot === null) {
       this.applyMessage({ type: 'empty', reason: 'noRepo' }, version, view);
       return;
@@ -104,7 +115,12 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
         return;
       }
       this.applyMessage(
-        { type: 'commitsLoaded', branch, commits: commits.map(toCommitDto) },
+        {
+          type: 'commitsLoaded',
+          branch,
+          commits: commits.map(toCommitDto),
+          selectedCommitId,
+        },
         version,
         view,
       );
@@ -143,8 +159,8 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
 
     return fs
       .readFileSync(htmlPath.fsPath, 'utf8')
-      .replaceAll('{{cspSource}}', webview.cspSource)
-      .replace('{{styleUri}}', styleUri.toString())
-      .replace('{{scriptUri}}', scriptUri.toString());
+      .replaceAll('{{cspSource}}', () => webview.cspSource)
+      .replace('{{styleUri}}', () => styleUri.toString())
+      .replace('{{scriptUri}}', () => scriptUri.toString());
   }
 }

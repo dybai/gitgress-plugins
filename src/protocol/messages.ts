@@ -10,7 +10,12 @@ export type CommitDto = {
 };
 
 export type HostToWebview =
-  | { type: 'commitsLoaded'; branch: string; commits: CommitDto[] }
+  | {
+      type: 'commitsLoaded';
+      branch: string;
+      commits: CommitDto[];
+      selectedCommitId?: string | null;
+    }
   | { type: 'empty'; reason: 'noRepo' | 'noCommits' | 'error'; message?: string }
   | { type: 'selectionCleared' };
 

@@ -104,6 +104,16 @@
     commitList.replaceChildren(
       ...message.commits.map((commit) => createCommit(commit, message.branch)),
     );
+    const selectedId = message.selectedCommitId;
+    if (typeof selectedId === 'string' && selectedId.length > 0) {
+      const button = commitList.querySelector(
+        `[data-commit-id="${CSS.escape(selectedId)}"]`,
+      );
+      if (button instanceof HTMLButtonElement) {
+        button.setAttribute('aria-current', 'true');
+        selectedButton = button;
+      }
+    }
     status.classList.add('hidden');
     content.classList.remove('hidden');
   };
