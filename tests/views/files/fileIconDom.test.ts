@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { FileIconRef } from '../../../src/protocol/filesMessages';
 import {
   CODICON_PATHS,
+  copySlotAttribute,
   describeFileIcon,
   fileIconFontFaceCss,
 } from '../../../src/views/files/fileIconDom';
@@ -95,5 +96,38 @@ describe('CODICON_PATHS', () => {
     expect(CODICON_PATHS.file.length).toBeGreaterThan(10);
     expect(CODICON_PATHS.folder.length).toBeGreaterThan(10);
     expect(CODICON_PATHS['folder-opened'].length).toBeGreaterThan(10);
+  });
+});
+
+describe('copySlotAttribute', () => {
+  it('copies slot when present', () => {
+    const fromAttrs = new Map([['slot', 'icon-branch']]);
+    const toAttrs = new Map<string, string>();
+    const from = {
+      getAttribute: (name: string) => fromAttrs.get(name) ?? null,
+    } as Element;
+    const to = {
+      getAttribute: (name: string) => toAttrs.get(name) ?? null,
+      setAttribute: (name: string, value: string) => {
+        toAttrs.set(name, value);
+      },
+    } as Element;
+
+    copySlotAttribute(from, to);
+    expect(toAttrs.get('slot')).toBe('icon-branch');
+  });
+
+  it('does nothing when source has no slot', () => {
+    const toAttrs = new Map<string, string>();
+    const from = { getAttribute: () => null } as Element;
+    const to = {
+      getAttribute: (name: string) => toAttrs.get(name) ?? null,
+      setAttribute: (name: string, value: string) => {
+        toAttrs.set(name, value);
+      },
+    } as Element;
+
+    copySlotAttribute(from, to);
+    expect(toAttrs.size).toBe(0);
   });
 });

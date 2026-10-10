@@ -73,6 +73,13 @@ export type CreateFileIconOptions = {
   imgErrorFallback?: FileIconRef;
 };
 
+export function copySlotAttribute(from: Element, to: Element): void {
+  const slot = from.getAttribute('slot');
+  if (slot !== null) {
+    to.setAttribute('slot', slot);
+  }
+}
+
 export function createFileIconElement(
   icon: FileIconRef,
   document: Document,
@@ -91,7 +98,9 @@ export function createFileIconElement(
       img.addEventListener(
         'error',
         () => {
-          img.replaceWith(createFileIconElement(fallback, document));
+          const replacement = createFileIconElement(fallback, document);
+          copySlotAttribute(img, replacement);
+          img.replaceWith(replacement);
         },
         { once: true },
       );

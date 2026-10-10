@@ -162,6 +162,10 @@ body {
   flex-direction: column;
 }
 
+.file-row .file-icon {
+  margin-right: 0;
+}
+
 .file-row {
   display: flex;
   align-items: center;
