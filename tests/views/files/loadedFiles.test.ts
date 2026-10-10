@@ -8,7 +8,7 @@ import {
 const loadedA: LoadedFiles = {
   repoRoot: '/repo',
   commitId: 'aaa',
-  files: [{ path: 'x.ts', status: 'M' }],
+  files: [{ path: 'x.ts', status: 'M', additions: 0, deletions: 0 }],
 };
 
 describe('resolveLoadedTarget', () => {

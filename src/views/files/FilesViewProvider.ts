@@ -4,7 +4,7 @@ import * as vscode from 'vscode';
 import { openFileDiffByPath } from '../../commands/openFileDiff';
 import { openWorkingFile } from '../../commands/openWorkingFile';
 import type { DiffService } from '../../diff/DiffService';
-import type { ChangedFile, GitService } from '../../git/GitService';
+import type { GitService } from '../../git/GitService';
 import {
   isFilesWebviewToHost,
   type FilesWebviewToHost,
@@ -181,10 +181,9 @@ export class FilesViewProvider implements vscode.WebviewViewProvider, vscode.Dis
     const { repoRoot, commitId, files } = this.loaded;
     const target = { repoRoot, commitId };
     const preference = readLayout(this.state);
-    const fileList = files as ChangedFile[];
-    const icons = this.resolveIcons(view, fileList.map((file) => file.path));
+    const icons = this.resolveIcons(view, files.map((file) => file.path));
     this.post(
-      buildFilesMessage(target, fileList, preference, icons),
+      buildFilesMessage(target, files, preference, icons),
       this.loadVersion,
       view,
     );

@@ -1,9 +1,10 @@
 import { resolveDiffTarget, type DiffTarget } from '../../commands/diffTarget';
+import type { ChangedFile } from '../../git/GitService';
 
 export interface LoadedFiles {
   repoRoot: string;
   commitId: string;
-  files: readonly DiffTarget[];
+  files: readonly ChangedFile[];
 }
 
 export interface SelectionKey {

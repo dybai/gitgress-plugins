@@ -30,7 +30,7 @@ export type FilesLoadTarget = {
 
 export function buildFilesMessage(
   target: FilesLoadTarget,
-  files: ChangedFile[] | null,
+  files: readonly ChangedFile[] | null,
   preference: FilesLayoutPreference,
   icons: FilesIconsPayload | undefined,
   error?: string,
