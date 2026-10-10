@@ -241,3 +241,31 @@ button {
   margin-left: 7px;
   color: var(--vscode-gitDecoration-deletedResourceForeground);
 }
+
+.scan-progress {
+  position: relative;
+  height: 2px;
+  width: 100%;
+  overflow: hidden;
+  background: transparent;
+}
+
+.scan-progress::after {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 30%;
+  height: 100%;
+  content: '';
+  background: var(--vscode-progressBar-background, var(--vscode-textLink-foreground));
+  animation: scan-progress-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes scan-progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}

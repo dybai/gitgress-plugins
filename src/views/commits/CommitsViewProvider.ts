@@ -20,6 +20,7 @@ import {
   loadCommitPage,
   replacePage,
 } from './paginationState';
+import { scanStatusMessage, type ScanStatus } from './scanStatusMessage';
 
 export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   private view: vscode.WebviewView | undefined;
@@ -33,6 +34,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     private readonly extensionUri: vscode.Uri,
     private readonly selection: SelectionState,
     private readonly gitService: GitService,
+    private readonly getScanStatus: () => ScanStatus = () => 'idle',
   ) {
     this.unsubscribe = selection.subscribe((snapshot) => {
       if (!shouldReloadCommits(this.lastLoadContext, snapshot)) {
@@ -72,6 +74,23 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     void this.load(this.selection.getSnapshot());
   }
 
+  /**
+   * Push the current repo-index scan status to the webview so it can toggle
+   * the indeterminate progress bar. Does not touch commit load state
+   * ({@link loadVersion}) or pagination.
+   */
+  notifyScanStatus(status: ScanStatus): void {
+    this.postScanStatus(status);
+  }
+
+  private postScanStatus(status: ScanStatus): void {
+    const view = this.view;
+    if (view === undefined) {
+      return;
+    }
+    void view.webview.postMessage(scanStatusMessage(status));
+  }
+
   dispose(): void {
     this.unsubscribe();
     this.view = undefined;
@@ -85,6 +104,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
       case 'ready':
       case 'retry':
         await this.load(this.selection.getSnapshot());
+        this.postScanStatus(this.getScanStatus());
         return;
       case 'commitSelected':
         if (this.lastLoadedCommitIds.has(message.commitId)) {

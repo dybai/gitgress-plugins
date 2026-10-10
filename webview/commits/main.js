@@ -378,6 +378,13 @@ import {
 
   window.addEventListener('message', ({ data }) => {
     if (!data || typeof data !== 'object' || typeof data.type !== 'string') return;
+    if (data.type === 'scanStatus') {
+      const scanProgress = document.getElementById('scan-progress');
+      if (scanProgress) {
+        scanProgress.classList.toggle('hidden', data.status !== 'scanning');
+      }
+      return;
+    }
     if (data.type === 'commitsLoaded' && Array.isArray(data.commits)) {
       renderCommits(data);
       lastHasMore = data.hasMore === true;
