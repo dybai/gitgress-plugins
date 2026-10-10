@@ -65,13 +65,15 @@ describe('SelectionCoordinator', () => {
 
       expect(setSpy).not.toHaveBeenCalledWith(null);
       expect(pref.get()).toBe('/gone/repo');
-      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
-      expect(coordinator.isLocked()).toBe(true);
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
 
       coordinator.onScanIdle();
 
       expect(setSpy).toHaveBeenCalledWith(null);
       expect(pref.get()).toBeNull();
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
+      expect(coordinator.isLocked()).toBe(true);
     });
 
     it('uses editor deepest prefix when no preference', () => {
@@ -161,6 +163,23 @@ describe('SelectionCoordinator', () => {
 
       expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
       expect(coordinator.isLocked()).toBe(true);
+    });
+
+    it('does not auto-select from editor while a pending manual preference exists', () => {
+      const pref = makePreference('/ws/b');
+      const { selection, coordinator, activeFileGetter } = makeCoordinator({
+        roots: ['/ws/a'],
+        preference: pref,
+        activeFile: null,
+      });
+      coordinator.resolveInitial();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+
+      activeFileGetter.mockReturnValue('/ws/a/src/main.ts');
+      coordinator.onActiveEditorChanged();
+
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
     });
 
     it('auto-selects and locks when unlocked, empty, and editor matches', () => {
@@ -306,6 +325,54 @@ describe('SelectionCoordinator', () => {
       coordinator.onIndexUpdated();
 
       expect(selection.getSnapshot().repoRoot).toBe('/ws/other');
+      expect(coordinator.isLocked()).toBe(true);
+    });
+
+    it('does not editor-lock away a pending preference when another repo appears mid-scan', () => {
+      const pref = makePreference('/ws/b');
+      const setSpy = vi.spyOn(pref, 'set');
+      const { selection, coordinator, rootsGetter } = makeCoordinator({
+        roots: [],
+        preference: pref,
+        activeFile: '/ws/a/src/main.ts',
+      });
+
+      coordinator.resolveInitial();
+      expect(pref.get()).toBe('/ws/b');
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+
+      rootsGetter.mockReturnValue(['/ws/a']);
+      coordinator.onIndexUpdated();
+
+      expect(setSpy).not.toHaveBeenCalledWith(null);
+      expect(pref.get()).toBe('/ws/b');
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+
+      rootsGetter.mockReturnValue(['/ws/a', '/ws/b']);
+      coordinator.onIndexUpdated();
+
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/b');
+      expect(coordinator.isLocked()).toBe(true);
+    });
+
+    it('applies pending preference over a premature editor lock when preferred root appears', () => {
+      const pref = makePreference('/ws/b');
+      const { selection, coordinator, rootsGetter } = makeCoordinator({
+        roots: ['/ws/a'],
+        preference: pref,
+        activeFile: '/ws/a/src/main.ts',
+      });
+
+      // Simulate pre-fix state: editor auto-selected /ws/a before pending-pref guard.
+      selection.setRepo('/ws/a');
+      (coordinator as unknown as { locked: boolean }).locked = true;
+
+      rootsGetter.mockReturnValue(['/ws/a', '/ws/b']);
+      coordinator.onIndexUpdated();
+
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/b');
       expect(coordinator.isLocked()).toBe(true);
     });
 

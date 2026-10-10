@@ -40,11 +40,13 @@ export class SelectionCoordinator {
       }
     }
 
-    const owner = this.editorOwningRoot();
-    if (owner != null && !this.isReSelectSuppressed(normalizeRepoPath(owner))) {
-      this.selection.setRepo(owner);
-      this.locked = true;
-      return;
+    if (!this.hasPendingManualPreference()) {
+      const owner = this.editorOwningRoot();
+      if (owner != null && !this.isReSelectSuppressed(normalizeRepoPath(owner))) {
+        this.selection.setRepo(owner);
+        this.locked = true;
+        return;
+      }
     }
 
     // Nothing matches: empty selection, do not lock.
@@ -58,10 +60,6 @@ export class SelectionCoordinator {
    * cannot be silently resurrected later.
    */
   onIndexUpdated(): void {
-    if (this.locked) {
-      return;
-    }
-
     const pref = this.preference.get();
     if (pref != null) {
       const normalizedPref = normalizeRepoPath(pref);
@@ -76,6 +74,14 @@ export class SelectionCoordinator {
       if (this.indexAuthoritative && !this.indexContains(normalizedPref)) {
         this.preference.set(null);
       }
+    }
+
+    if (this.locked) {
+      return;
+    }
+
+    if (this.hasPendingManualPreference()) {
+      return;
     }
 
     if (this.selection.getSnapshot().repoRoot === null) {
@@ -116,6 +122,9 @@ export class SelectionCoordinator {
 
   onActiveEditorChanged(): void {
     if (this.locked) {
+      return;
+    }
+    if (this.hasPendingManualPreference()) {
       return;
     }
     if (this.selection.getSnapshot().repoRoot !== null) {
@@ -206,6 +215,18 @@ export class SelectionCoordinator {
       }
     }
     return false;
+  }
+
+  /** Saved manual root not in the index yet while scan is still in flight. */
+  private hasPendingManualPreference(): boolean {
+    if (this.indexAuthoritative) {
+      return false;
+    }
+    const pref = this.preference.get();
+    if (pref == null) {
+      return false;
+    }
+    return !this.indexContains(normalizeRepoPath(pref));
   }
 
   private editorOwningRoot(): string | null {
