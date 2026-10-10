@@ -108,10 +108,12 @@
     "publish:ovsx": "ovsx publish"
   },
   "dependencies": {
-    "@vscode-elements/elements": "^2.5.1"
+    "@vscode-elements/elements": "^2.5.1",
+    "sql.js": "^1.14.2"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/sql.js": "^1.4.11",
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.25.0",
