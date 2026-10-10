@@ -34,6 +34,8 @@ const TABLE_DDL = `
   );
 `;
 
+const SQLITE_HEADER = 'SQLite format 3\0';
+
 // Cache the initialized sql.js static so we only load the wasm once per
 // process even if many stores are created.
 let sqlJsPromise: Promise<SqlJsStatic> | null = null;
@@ -71,30 +73,26 @@ async function loadDatabase(dbFilePath: string, SQL: SqlJsStatic): Promise<Datab
       );
     }
     const bytes = fs.readFileSync(dbFilePath);
-    if (bytes.length === 0) {
-      // Empty file: treat as fresh database rather than corrupt.
-      db = new SQL.Database();
-    } else {
-      try {
-        db = new SQL.Database(bytes);
-      } catch (err) {
-        throw new RepoIndexDbError(
-          `failed to open repo index db (corrupt or not SQLite): ${dbFilePath}`,
-          dbFilePath,
-          err,
-        );
-      }
-      // Sanity-check: a file that happens to parse but isn't actually SQLite
-      // (e.g. random bytes that emscripten accepts) should still expose the
-      // expected schema after migration, but verify the header magic to be
-      // safe. SQLite files start with "SQLite format 3\0".
-      if (bytes.length >= 16 && bytes.subarray(0, 16).toString('latin1') !== 'SQLite format 3\0') {
-        db.close();
-        throw new RepoIndexDbError(
-          `repo index db is not a valid SQLite file: ${dbFilePath}`,
-          dbFilePath,
-        );
-      }
+    if (
+      bytes.length === 0 ||
+      bytes.length < 16 ||
+      bytes.subarray(0, 16).toString('latin1') !== SQLITE_HEADER
+    ) {
+      throw new RepoIndexDbError(
+        bytes.length === 0
+          ? `repo index db is truncated or empty: ${dbFilePath}`
+          : `repo index db is not a valid SQLite file: ${dbFilePath}`,
+        dbFilePath,
+      );
+    }
+    try {
+      db = new SQL.Database(bytes);
+    } catch (err) {
+      throw new RepoIndexDbError(
+        `failed to open repo index db (corrupt or not SQLite): ${dbFilePath}`,
+        dbFilePath,
+        err,
+      );
     }
   } else {
     db = new SQL.Database();
@@ -178,15 +176,29 @@ export async function createSqliteRepoIndexStore(
     },
 
     replaceAll(items: readonly RepoIndexEntry[]): void {
-      db.run('DELETE FROM repos;');
+      // Last-value-wins for normalized roots, matching createMemoryRepoIndexStore.
+      const deduped = new Map<string, RepoIndexEntry>();
+      for (const item of items) {
+        const normalized = normalizeEntry(item);
+        deduped.set(normalized.root, normalized);
+      }
+
+      db.run('BEGIN;');
       const stmt = db.prepare(
         'INSERT INTO repos (root, source, last_seen_ms) VALUES (?, ?, ?);',
       );
-      for (const item of items) {
-        const normalized = normalizeEntry(item);
-        stmt.run([normalized.root, normalized.source, normalized.lastSeenMs]);
+      try {
+        db.run('DELETE FROM repos;');
+        for (const normalized of deduped.values()) {
+          stmt.run([normalized.root, normalized.source, normalized.lastSeenMs]);
+        }
+        db.run('COMMIT;');
+      } catch (err) {
+        db.run('ROLLBACK;');
+        throw err;
+      } finally {
+        stmt.free();
       }
-      stmt.free();
       flush();
     },
 
