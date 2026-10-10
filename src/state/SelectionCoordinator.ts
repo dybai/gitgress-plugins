@@ -17,6 +17,11 @@ export class SelectionCoordinator {
     private readonly getIndexedRoots: () => readonly string[],
     private readonly preference: ManualRepoPreference,
     private readonly getActiveFilePath: () => string | null,
+    /**
+     * Fallback when the workspace index does not yet contain the editor file's
+     * repo (cold start / scan still running). Typically walks ancestors for `.git`.
+     */
+    private readonly discoverGitRoot?: (filePath: string) => string | null,
   ) {}
 
   /** Apply preference → editor → empty. Clears stale preference when the index is authoritative. */
@@ -234,6 +239,10 @@ export class SelectionCoordinator {
     if (activeFile == null) {
       return null;
     }
-    return findOwningRepoRoot(activeFile, this.getIndexedRoots());
+    const fromIndex = findOwningRepoRoot(activeFile, this.getIndexedRoots());
+    if (fromIndex != null) {
+      return fromIndex;
+    }
+    return this.discoverGitRoot?.(activeFile) ?? null;
   }
 }

@@ -23,6 +23,7 @@ function makeCoordinator(opts: {
   roots?: readonly string[];
   preference?: ManualRepoPreference;
   activeFile?: string | null;
+  discoverGitRoot?: (filePath: string) => string | null;
 } = {}) {
   const selection = opts.selection ?? new SelectionState();
   const rootsGetter = vi.fn(() => opts.roots ?? []);
@@ -33,6 +34,7 @@ function makeCoordinator(opts: {
     rootsGetter,
     preference,
     activeFileGetter,
+    opts.discoverGitRoot,
   );
   return { selection, rootsGetter, preference, activeFileGetter, coordinator };
 }
@@ -85,6 +87,22 @@ describe('SelectionCoordinator', () => {
       coordinator.resolveInitial();
 
       expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
+      expect(coordinator.isLocked()).toBe(true);
+    });
+
+    it('discovers git root from the open file when the index is still empty', () => {
+      const { selection, coordinator } = makeCoordinator({
+        roots: [],
+        activeFile:
+          '/ws/fintech/fintech-service/.superpowers/specs/design.md',
+        discoverGitRoot: () => '/ws/fintech/fintech-service/.superpowers',
+      });
+
+      coordinator.resolveInitial();
+
+      expect(selection.getSnapshot().repoRoot).toBe(
+        '/ws/fintech/fintech-service/.superpowers',
+      );
       expect(coordinator.isLocked()).toBe(true);
     });
 

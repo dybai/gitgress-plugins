@@ -1,3 +1,4 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { registerOpenFileDiff } from './commands/openFileDiff';
@@ -15,6 +16,7 @@ import { GitgressContentProvider } from './diff/GitgressContentProvider';
 import { pickActiveFilePath } from './extension/activeFilePath';
 import { GitService } from './git/GitService';
 import { createRunGit } from './git/runGit';
+import { discoverGitRootFromPath } from './repoIndex/discoverGitRootFromPath';
 import { createNodeScanFs } from './repoIndex/nodeScanFs';
 import { RepoIndexService, type ScanStatus } from './repoIndex/RepoIndexService';
 import { createMemoryRepoIndexStore } from './repoIndex/repoIndexStore';
@@ -85,6 +87,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       },
     },
     activeFilePath,
+    (filePath) =>
+      discoverGitRootFromPath(filePath, (candidate) => fs.existsSync(candidate)),
   );
   const commitsProvider = new CommitsViewProvider(
     context.extensionUri,
