@@ -6,6 +6,18 @@ export type ChangedFileDto = {
   oldPath?: string;
 };
 
+export type FileIconRef =
+  | { kind: 'theme'; uri: string }
+  | { kind: 'font'; fontId: string; character: string; color?: string }
+  | { kind: 'codicon'; id: string };
+
+export type FilesIconsPayload = {
+  files: Record<string, FileIconRef>;
+  folder: FileIconRef;
+  folderOpen: FileIconRef;
+  fonts: Array<{ id: string; uri: string }>;
+};
+
 export type HostToFilesWebview =
   | {
       type: 'filesLoaded';
@@ -14,6 +26,7 @@ export type HostToFilesWebview =
       files: ChangedFileDto[];
       layoutPreference: 'list' | 'tree' | 'auto';
       effectiveLayout: 'list' | 'tree';
+      icons: FilesIconsPayload;
     }
   | { type: 'filesEmpty'; reason: 'noCommit' | 'noFiles'; message?: string }
   | { type: 'filesError'; message: string };
@@ -54,6 +67,52 @@ function isChangedFileDto(value: unknown): value is ChangedFileDto {
   );
 }
 
+function isFileIconRef(value: unknown): value is FileIconRef {
+  if (!isRecord(value) || typeof value.kind !== 'string') {
+    return false;
+  }
+  switch (value.kind) {
+    case 'theme':
+      return isNonEmptyString(value.uri);
+    case 'font':
+      return (
+        isNonEmptyString(value.fontId) &&
+        isNonEmptyString(value.character) &&
+        (value.color === undefined || typeof value.color === 'string')
+      );
+    case 'codicon':
+      return isNonEmptyString(value.id);
+    default:
+      return false;
+  }
+}
+
+function isFilesIconsPayload(value: unknown): value is FilesIconsPayload {
+  if (!isRecord(value)) {
+    return false;
+  }
+  if (!isRecord(value.files)) {
+    return false;
+  }
+  for (const icon of Object.values(value.files)) {
+    if (!isFileIconRef(icon)) {
+      return false;
+    }
+  }
+  if (!isFileIconRef(value.folder) || !isFileIconRef(value.folderOpen)) {
+    return false;
+  }
+  if (!Array.isArray(value.fonts)) {
+    return false;
+  }
+  for (const font of value.fonts) {
+    if (!isRecord(font) || !isNonEmptyString(font.id) || !isNonEmptyString(font.uri)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function isHostToFilesWebview(value: unknown): value is HostToFilesWebview {
   if (!isRecord(value) || typeof value.type !== 'string') {
     return false;
@@ -66,7 +125,8 @@ export function isHostToFilesWebview(value: unknown): value is HostToFilesWebvie
         Array.isArray(value.files) &&
         value.files.every(isChangedFileDto) &&
         isLayoutPreference(value.layoutPreference) &&
-        isEffectiveLayout(value.effectiveLayout)
+        isEffectiveLayout(value.effectiveLayout) &&
+        isFilesIconsPayload(value.icons)
       );
     case 'filesEmpty': {
       const reason = value.reason;

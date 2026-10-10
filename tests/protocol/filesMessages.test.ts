@@ -11,6 +11,18 @@ const validChangedFile = {
   deletions: 1,
 };
 
+function validIcons(overrides: Record<string, unknown> = {}) {
+  return {
+    files: {
+      'src/foo.ts': { kind: 'codicon', id: 'file' },
+    },
+    folder: { kind: 'codicon', id: 'folder' },
+    folderOpen: { kind: 'codicon', id: 'folder-opened' },
+    fonts: [],
+    ...overrides,
+  };
+}
+
 function validFilesLoaded(overrides: Record<string, unknown> = {}) {
   return {
     type: 'filesLoaded' as const,
@@ -19,6 +31,7 @@ function validFilesLoaded(overrides: Record<string, unknown> = {}) {
     files: [validChangedFile],
     layoutPreference: 'auto' as const,
     effectiveLayout: 'list' as const,
+    icons: validIcons(),
     ...overrides,
   };
 }
@@ -41,6 +54,44 @@ describe('isHostToFilesWebview', () => {
   it('rejects filesLoaded when repoRoot is missing', () => {
     const { repoRoot: _, ...withoutRepoRoot } = validFilesLoaded();
     expect(isHostToFilesWebview(withoutRepoRoot)).toBe(false);
+  });
+
+  it('rejects filesLoaded when icons is missing', () => {
+    const { icons: _, ...rest } = validFilesLoaded();
+    expect(isHostToFilesWebview(rest)).toBe(false);
+  });
+
+  it('accepts theme and font icon refs', () => {
+    expect(
+      isHostToFilesWebview(
+        validFilesLoaded({
+          icons: validIcons({
+            files: {
+              'a.ts': { kind: 'theme', uri: 'vscode-webview://x/a.svg' },
+              'b.ts': {
+                kind: 'font',
+                fontId: 'seti',
+                character: '\uE099',
+                color: '#519aba',
+              },
+            },
+            fonts: [{ id: 'seti', uri: 'vscode-webview://x/seti.woff' }],
+          }),
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects malformed icon kind', () => {
+    expect(
+      isHostToFilesWebview(
+        validFilesLoaded({
+          icons: validIcons({
+            files: { 'a.ts': { kind: 'nope', uri: 'x' } },
+          }),
+        }),
+      ),
+    ).toBe(false);
   });
 
   it('accepts filesEmpty with reason noCommit', () => {
