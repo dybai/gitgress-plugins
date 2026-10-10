@@ -33,7 +33,8 @@ export type HostToWebview =
       selectedCommitId?: string | null;
     }
   | { type: 'empty'; reason: 'noRepo' | 'noCommits' | 'error'; message?: string }
-  | { type: 'selectionCleared' };
+  | { type: 'selectionCleared' }
+  | { type: 'scanStatus'; status: 'idle' | 'scanning' };
 
 export type WebviewToHost =
   | { type: 'ready' }
@@ -112,6 +113,8 @@ export function isHostMessage(value: unknown): value is HostToWebview {
     }
     case 'selectionCleared':
       return true;
+    case 'scanStatus':
+      return value.status === 'idle' || value.status === 'scanning';
     default:
       return false;
   }
