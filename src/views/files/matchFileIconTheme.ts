@@ -29,11 +29,7 @@ function resolveDefinitionIdForFile(
   if (fileExtensions) {
     let bestKey: string | undefined;
     for (const key of Object.keys(fileExtensions)) {
-      const matches =
-        name === key ||
-        (key.includes('.')
-          ? name.endsWith(`.${key}`)
-          : name.endsWith(`.${key}`) || name === key);
+      const matches = name === key || name.endsWith(`.${key}`);
       if (matches && (!bestKey || key.length > bestKey.length)) {
         bestKey = key;
       }
