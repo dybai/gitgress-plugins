@@ -1,10 +1,11 @@
 export function normalizeRepoPath(fsPath: string): string {
   let p = fsPath.replace(/\\/g, '/');
-  if (/^[A-Za-z]:/.test(p)) {
+  if (/^[A-Za-z]:\//.test(p)) {
     p = p[0].toLowerCase() + p.slice(1);
   }
-  if (p.endsWith('/') && !/^[a-z]:\/$/.test(p)) {
-    p = p.slice(0, -1);
+  p = p.replace(/\/+$/, '');
+  if (/^[a-z]:$/.test(p)) {
+    p = `${p}/`;
   }
   return p;
 }

@@ -9,6 +9,22 @@ describe('normalizeRepoPath', () => {
     expect(normalizeRepoPath('D:\\a\\b\\')).toBe('d:/a/b');
     expect(normalizeRepoPath('/a/b/')).toBe('/a/b');
   });
+
+  it('strips all repeated trailing slashes', () => {
+    expect(normalizeRepoPath('d:/a/b//')).toBe('d:/a/b');
+    expect(normalizeRepoPath('/a/b///')).toBe('/a/b');
+    expect(normalizeRepoPath('C:\\\\')).toBe('c:/');
+  });
+
+  it('preserves Windows drive root as c:/', () => {
+    expect(normalizeRepoPath('C:/')).toBe('c:/');
+  });
+
+  it('lowercases drive letter only for X:/ absolute paths', () => {
+    expect(normalizeRepoPath('D:/proj')).toBe('d:/proj');
+    expect(normalizeRepoPath('D:foo')).toBe('D:foo');
+    expect(normalizeRepoPath('D:foo\\bar')).toBe('D:foo/bar');
+  });
 });
 
 describe('findOwningRepoRoot', () => {
