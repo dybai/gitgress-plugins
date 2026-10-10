@@ -28,11 +28,14 @@ export async function refreshRepository(
   gitService: Pick<GitService, 'currentBranch' | 'listBranches'>,
   selection: Pick<SelectionState, 'getSnapshot' | 'setBranch'>,
 ): Promise<void> {
-  const { repoRoot } = selection.getSnapshot();
+  const { repoRoot, repoGeneration } = selection.getSnapshot();
   if (repoRoot === null) {
     return;
   }
-  const isStale = (): boolean => selection.getSnapshot().repoRoot !== repoRoot;
+  const isStale = (): boolean => {
+    const snap = selection.getSnapshot();
+    return snap.repoRoot !== repoRoot || snap.repoGeneration !== repoGeneration;
+  };
 
   try {
     const currentBranch = (await gitService.currentBranch(repoRoot)) || 'HEAD';

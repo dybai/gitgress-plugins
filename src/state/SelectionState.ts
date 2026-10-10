@@ -2,6 +2,8 @@ export type SelectionSnapshot = {
   repoRoot: string | null;
   branch: string | null;
   selectedCommitId: string | null;
+  /** Increments whenever {@link SelectionState.setRepo} selects a different root. */
+  repoGeneration: number;
 };
 
 type Listener = (snapshot: SelectionSnapshot) => void;
@@ -10,6 +12,7 @@ export class SelectionState {
   private repoRoot: string | null = null;
   private branch: string | null = null;
   private selectedCommitId: string | null = null;
+  private repoGeneration = 0;
   private readonly listeners = new Set<Listener>();
 
   getSnapshot(): SelectionSnapshot {
@@ -17,6 +20,7 @@ export class SelectionState {
       repoRoot: this.repoRoot,
       branch: this.branch,
       selectedCommitId: this.selectedCommitId,
+      repoGeneration: this.repoGeneration,
     };
   }
 
@@ -25,6 +29,7 @@ export class SelectionState {
       return;
     }
     this.repoRoot = repoRoot;
+    this.repoGeneration += 1;
     this.branch = null;
     this.selectedCommitId = null;
     this.notify();

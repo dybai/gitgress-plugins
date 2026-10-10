@@ -1,4 +1,4 @@
-import { GitCommandFailedError } from '../git/errors';
+import { isInvalidSelectedRepositoryError } from '../git/invalidRepository';
 import type { SelectionCoordinator } from '../state/SelectionCoordinator';
 
 export type SelectionRecoveryDeps = {
@@ -10,7 +10,7 @@ export type SelectionRecoveryDeps = {
  * Run a Git-backed action for the current selection. On failure, clear the
  * selection through the coordinator (so its lock state stays consistent with
  * SelectionState) and report the error. A failed command for a specific repo
- * also forgets a matching manual preference; global failures keep it.
+ * also forgets a matching manual preference; transient or global failures keep it.
  */
 export async function runWithSelectionRecovery(
   deps: SelectionRecoveryDeps,
@@ -20,7 +20,7 @@ export async function runWithSelectionRecovery(
     await action();
   } catch (error) {
     deps.coordinator.clearSelection({
-      forgetPreference: error instanceof GitCommandFailedError,
+      forgetPreference: isInvalidSelectedRepositoryError(error),
     });
     await deps.showError(error);
   }

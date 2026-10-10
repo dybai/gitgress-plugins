@@ -53,7 +53,7 @@ describe('runWithSelectionRecovery', () => {
     expect(selection.getSnapshot().repoRoot).toBe('/a');
   });
 
-  it('forgets a matching preference when a git command fails for the repo', async () => {
+  it('forgets a matching preference when the selected repository is invalid', async () => {
     const { selection, coordinator, showError, getPref } = setup(['/a']);
     coordinator.selectManually('/a');
 
@@ -66,6 +66,21 @@ describe('runWithSelectionRecovery', () => {
     expect(getPref()).toBeNull();
     coordinator.onIndexUpdated();
     expect(selection.getSnapshot().repoRoot).toBeNull();
+  });
+
+  it('keeps the manual preference on a transient git command failure', async () => {
+    const { selection, coordinator, showError, getPref } = setup(['/a']);
+    coordinator.selectManually('/a');
+
+    await runWithSelectionRecovery({ coordinator, showError }, async () => {
+      throw new GitCommandFailedError(['for-each-ref'], 'fatal: unable to read tree', 128);
+    });
+
+    expect(selection.getSnapshot().repoRoot).toBeNull();
+    expect(coordinator.isLocked()).toBe(false);
+    expect(getPref()).toBe('/a');
+    coordinator.onIndexUpdated();
+    expect(selection.getSnapshot().repoRoot).toBe('/a');
   });
 
   it('does not clear a newer selection when a stale lookup rejects', async () => {
@@ -94,6 +109,48 @@ describe('runWithSelectionRecovery', () => {
 
     expect(selection.getSnapshot()).toMatchObject({ repoRoot: '/b', branch: 'main-b' });
     expect(coordinator.isLocked()).toBe(true);
+    expect(showError).not.toHaveBeenCalled();
+  });
+
+  it('does not clear A → B → A when an old A lookup rejects as invalid', async () => {
+    const { selection, coordinator, showError, getPref } = setup(['/a', '/b']);
+    const lookupA1 = deferred<string>();
+    let aLookups = 0;
+    const gitService = {
+      currentBranch: vi.fn((repo: string) => {
+        if (repo === '/a') {
+          aLookups += 1;
+          return aLookups === 1 ? lookupA1.promise : Promise.resolve('main-a');
+        }
+        return Promise.resolve('main-b');
+      }),
+      listBranches: vi.fn(async () => []),
+    };
+
+    coordinator.selectManually('/a');
+    const pendingA1 = runWithSelectionRecovery({ coordinator, showError }, () =>
+      refreshRepository(gitService, selection),
+    );
+
+    coordinator.selectManually('/b');
+    await runWithSelectionRecovery({ coordinator, showError }, () =>
+      refreshRepository(gitService, selection),
+    );
+    coordinator.selectManually('/a');
+    await runWithSelectionRecovery({ coordinator, showError }, () =>
+      refreshRepository(gitService, selection),
+    );
+    expect(selection.getSnapshot()).toMatchObject({ repoRoot: '/a', branch: 'main-a' });
+    expect(getPref()).toBe('/a');
+
+    lookupA1.reject(
+      new GitCommandFailedError(['branch'], 'fatal: not a git repository', 128),
+    );
+    await pendingA1;
+
+    expect(selection.getSnapshot()).toMatchObject({ repoRoot: '/a', branch: 'main-a' });
+    expect(coordinator.isLocked()).toBe(true);
+    expect(getPref()).toBe('/a');
     expect(showError).not.toHaveBeenCalled();
   });
 });

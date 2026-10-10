@@ -8,6 +8,7 @@ describe('SelectionState', () => {
       repoRoot: null,
       branch: null,
       selectedCommitId: null,
+      repoGeneration: 0,
     });
   });
 
@@ -20,6 +21,7 @@ describe('SelectionState', () => {
       repoRoot: '/repo',
       branch: 'main',
       selectedCommitId: 'abc123',
+      repoGeneration: 1,
     });
   });
 
@@ -33,6 +35,7 @@ describe('SelectionState', () => {
       repoRoot: '/repo',
       branch: 'dev',
       selectedCommitId: null,
+      repoGeneration: 1,
     });
   });
 
@@ -46,6 +49,7 @@ describe('SelectionState', () => {
       repoRoot: '/repo-b',
       branch: null,
       selectedCommitId: null,
+      repoGeneration: 2,
     });
   });
 
@@ -59,6 +63,7 @@ describe('SelectionState', () => {
       repoRoot: null,
       branch: null,
       selectedCommitId: null,
+      repoGeneration: 2,
     });
   });
 
@@ -72,7 +77,20 @@ describe('SelectionState', () => {
       repoRoot: '/repo',
       branch: 'main',
       selectedCommitId: 'abc123',
+      repoGeneration: 1,
     });
+  });
+
+  it('bumps repoGeneration when the selected repository changes', () => {
+    const state = new SelectionState();
+    state.setRepo('/a');
+    expect(state.getSnapshot().repoGeneration).toBe(1);
+    state.setRepo('/b');
+    expect(state.getSnapshot().repoGeneration).toBe(2);
+    state.setRepo('/a');
+    expect(state.getSnapshot().repoGeneration).toBe(3);
+    state.setRepo('/a');
+    expect(state.getSnapshot().repoGeneration).toBe(3);
   });
 
   it('notifies subscribers on changes and supports unsubscribe', () => {
@@ -85,6 +103,7 @@ describe('SelectionState', () => {
       repoRoot: '/repo',
       branch: null,
       selectedCommitId: null,
+      repoGeneration: 1,
     });
 
     unsubscribe();

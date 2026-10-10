@@ -8,6 +8,7 @@ const snapshot = (
   repoRoot: '/repo',
   branch: 'main',
   selectedCommitId: null,
+  repoGeneration: 0,
   ...overrides,
 });
 

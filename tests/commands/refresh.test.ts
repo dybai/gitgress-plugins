@@ -201,6 +201,71 @@ describe('refreshRepository', () => {
 
       await expect(refreshRepository(gitService, selection)).rejects.toThrow('boom-b');
     });
+
+    it('discards a stale currentBranch result after A → B → A re-selection', async () => {
+      const selection = new SelectionState();
+      const lookupA1 = deferred<string>();
+      let aLookups = 0;
+      const gitService = {
+        currentBranch: vi.fn((repo: string) => {
+          if (repo === '/a') {
+            aLookups += 1;
+            return aLookups === 1 ? lookupA1.promise : Promise.resolve('main-a-fresh');
+          }
+          return Promise.resolve('main-b');
+        }),
+        listBranches: vi.fn(async (repo: string) =>
+          repo === '/a' ? ['main-a-fresh'] : ['main-b'],
+        ),
+      };
+
+      selection.setRepo('/a');
+      const pendingA1 = refreshRepository(gitService, selection);
+      selection.setRepo('/b');
+      await refreshRepository(gitService, selection);
+      selection.setRepo('/a');
+      await refreshRepository(gitService, selection);
+      expect(selection.getSnapshot()).toMatchObject({
+        repoRoot: '/a',
+        branch: 'main-a-fresh',
+      });
+
+      lookupA1.resolve('main-a-stale');
+      await pendingA1;
+
+      expect(selection.getSnapshot()).toMatchObject({
+        repoRoot: '/a',
+        branch: 'main-a-fresh',
+      });
+    });
+
+    it('swallows a stale rejection after A → B → A re-selection', async () => {
+      const selection = new SelectionState();
+      const lookupA1 = deferred<string>();
+      let aLookups = 0;
+      const gitService = {
+        currentBranch: vi.fn((repo: string) => {
+          if (repo === '/a') {
+            aLookups += 1;
+            return aLookups === 1 ? lookupA1.promise : Promise.resolve('main-a');
+          }
+          return Promise.resolve('main-b');
+        }),
+        listBranches: vi.fn(async () => []),
+      };
+
+      selection.setRepo('/a');
+      const pendingA1 = refreshRepository(gitService, selection);
+      selection.setRepo('/b');
+      await refreshRepository(gitService, selection);
+      selection.setRepo('/a');
+      await refreshRepository(gitService, selection);
+      expect(selection.getSnapshot()).toMatchObject({ repoRoot: '/a', branch: 'main-a' });
+
+      lookupA1.reject(new Error('boom-a-stale'));
+      await expect(pendingA1).resolves.toBeUndefined();
+      expect(selection.getSnapshot()).toMatchObject({ repoRoot: '/a', branch: 'main-a' });
+    });
   });
 
   it('maps typed git errors to actionable messages', () => {
