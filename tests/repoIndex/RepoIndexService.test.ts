@@ -252,6 +252,52 @@ describe('RepoIndexService', () => {
     service.dispose();
   });
 
+  it('dispose during pending openStore prevents scan and closes resolved store', async () => {
+    const fs = makeFs({
+      '/ws': { kind: 'dir', names: ['repo'] },
+      '/ws/repo': { kind: 'dir', names: ['.git'] },
+      '/ws/repo/.git': { kind: 'dir', names: [] },
+    });
+    let resolveOpen!: (store: RepoIndexStore) => void;
+    const openPending = new Promise<RepoIndexStore>((resolve) => {
+      resolveOpen = resolve;
+    });
+    let lateStoreClosed = false;
+    const base = createMemoryRepoIndexStore();
+    const lateStore: RepoIndexStore = {
+      ...base,
+      getEntries: () => base.getEntries(),
+      upsert: (e) => base.upsert(e),
+      replaceAll: (e) => base.replaceAll(e),
+      pruneMissing: (exists) => base.pruneMissing(exists),
+      close() {
+        lateStoreClosed = true;
+        base.close();
+      },
+      mode: base.mode,
+    };
+
+    const service = new RepoIndexService({
+      workspaceRoots: () => ['/ws'],
+      fs,
+      openStore: async () => openPending,
+      openMemoryStore: () => createMemoryRepoIndexStore(),
+    });
+
+    const statuses: ScanStatusLike[] = [];
+    service.subscribe(() => statuses.push(service.getScanStatus()));
+
+    const startPromise = service.start();
+    service.dispose();
+    resolveOpen(lateStore);
+    await startPromise;
+
+    expect(lateStoreClosed).toBe(true);
+    expect(service.getScanStatus()).toBe('idle');
+    expect(service.getRepos()).toEqual([]);
+    expect(statuses).not.toContain('scanning');
+  });
+
   it('dispose aborts an in-progress scan', async () => {
     const baseFs = makeFs({
       '/ws': { kind: 'dir', names: ['a'] },
@@ -291,6 +337,47 @@ describe('RepoIndexService', () => {
 
     expect(service.getScanStatus()).toBe('idle');
     expect(service.getRepos()).toEqual([]);
+  });
+
+  it('dispose during pending start closes resolved store and does not scan', async () => {
+    const fs = makeFs({
+      '/ws': { kind: 'dir', names: ['repo'] },
+      '/ws/repo': { kind: 'dir', names: ['.git'] },
+      '/ws/repo/.git': { kind: 'dir', names: [] },
+    });
+    let resolveOpenStore!: (store: RepoIndexStore) => void;
+    const openStorePending = new Promise<RepoIndexStore>((resolve) => {
+      resolveOpenStore = resolve;
+    });
+    const inner = createMemoryRepoIndexStore();
+    let resolvedStoreClosed = false;
+    const trackedStore: RepoIndexStore = {
+      ...inner,
+      close() {
+        resolvedStoreClosed = true;
+        inner.close();
+      },
+    };
+
+    const service = new RepoIndexService({
+      workspaceRoots: () => ['/ws'],
+      fs,
+      openStore: () => openStorePending,
+      openMemoryStore: () => createMemoryRepoIndexStore(),
+    });
+
+    let notifyCount = 0;
+    service.subscribe(() => notifyCount++);
+
+    const startPromise = service.start();
+    service.dispose();
+    resolveOpenStore(trackedStore);
+    await startPromise;
+
+    expect(resolvedStoreClosed).toBe(true);
+    expect(service.getScanStatus()).toBe('idle');
+    expect(service.getRepos()).toEqual([]);
+    expect(notifyCount).toBe(0);
   });
 
   it('subscribe returns an unsubscribe that stops notifications', async () => {
