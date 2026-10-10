@@ -10,7 +10,9 @@ export function buildCommitsPayload(
   rows: CommitSummary[],
   mode: 'replace' | 'append',
   hasMore: boolean,
-  selectedCommitId?: string | null,
+  selectedCommitId: string | null | undefined,
+  repoRoot: string,
+  headCommitId: string,
 ): Extract<HostToWebview, { type: 'commitsLoaded' }> {
   const layout = layoutCommitGraph(rows);
 
@@ -28,6 +30,8 @@ export function buildCommitsPayload(
     laneCount: layout.laneCount,
     hasMore,
     mode,
+    repoRoot,
+    headCommitId,
     selectedCommitId,
   };
 }

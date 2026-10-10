@@ -34,6 +34,8 @@ function validCommitsLoaded(overrides: Record<string, unknown> = {}) {
     laneCount: 2,
     hasMore: false,
     mode: 'replace' as const,
+    repoRoot: '/repo',
+    headCommitId: 'abc',
     ...overrides,
   };
 }
@@ -76,6 +78,20 @@ describe('isHostMessage', () => {
     expect(isHostMessage(validCommitsLoaded({ edges: [withoutViaLane] }))).toBe(false);
   });
 
+  it('rejects commitsLoaded when repoRoot is missing', () => {
+    const { repoRoot: _, ...rest } = validCommitsLoaded();
+    expect(isHostMessage(rest)).toBe(false);
+  });
+
+  it('accepts commitsLoaded with empty headCommitId', () => {
+    expect(isHostMessage(validCommitsLoaded({ headCommitId: '' }))).toBe(true);
+  });
+
+  it('rejects commitsLoaded when headCommitId is missing', () => {
+    const { headCommitId: _, ...rest } = validCommitsLoaded();
+    expect(isHostMessage(rest)).toBe(false);
+  });
+
   it('accepts scanStatus idle', () => {
     expect(isHostMessage({ type: 'scanStatus', status: 'idle' })).toBe(true);
   });
@@ -104,5 +120,9 @@ describe('isWebviewToHost', () => {
 
   it('accepts loadMore', () => {
     expect(isWebviewToHost({ type: 'loadMore' })).toBe(true);
+  });
+
+  it('accepts selectRepository from webview', () => {
+    expect(isWebviewToHost({ type: 'selectRepository' })).toBe(true);
   });
 });

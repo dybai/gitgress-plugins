@@ -41,6 +41,31 @@ describe('GitService', () => {
     expect(runGit).toHaveBeenCalledWith('/repo', ['branch', '--show-current']);
   });
 
+  it('resolves a ref tip to a full commit id', async () => {
+    const runGit = vi.fn<RunGit>(async () => ({
+      stdout: 'abcdef0123456789\n',
+      stderr: '',
+    }));
+
+    await expect(new GitService(runGit).resolveTip('/repo', 'main')).resolves.toBe(
+      'abcdef0123456789',
+    );
+    expect(runGit).toHaveBeenCalledWith('/repo', [
+      'rev-parse',
+      '--verify',
+      '--end-of-options',
+      'main',
+    ]);
+  });
+
+  it('returns null when tip resolution fails', async () => {
+    const runGit = vi.fn<RunGit>(async (_cwd, args) => {
+      throw new GitCommandFailedError(args, 'unknown revision');
+    });
+
+    await expect(new GitService(runGit).resolveTip('/repo', 'missing')).resolves.toBeNull();
+  });
+
   it('lists local branches without decoration or blank lines', async () => {
     const runGit = vi.fn<RunGit>(async () => ({
       stdout: 'main\nfeature/one\n\n',

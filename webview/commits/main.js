@@ -3,10 +3,13 @@ import {
   isCommitNavKey,
   nextCommitIndex,
 } from '../../src/views/commits/commitKeyboardNav.ts';
+import { formatCompactRelativeTime } from '../../src/views/commits/formatCompactRelativeTime.ts';
+import { repoShortName } from '../../src/views/commits/repoShortName.ts';
 
   const vscode = acquireVsCodeApi();
   const status = document.querySelector('#status');
   const content = document.querySelector('#content');
+  const repoName = document.querySelector('#repo-name');
   const branchName = document.querySelector('#branch-name');
   const commitList = document.querySelector('#commit-list');
   const switchBranch = document.querySelector('#switch-branch');
@@ -195,29 +198,73 @@ import {
     vscode.postMessage({ type: 'commitSelected', commitId });
   };
 
-  const createCommit = (commit, branch) => {
+  const createCommit = (commit, message) => {
     const item = document.createElement('li');
     item.className = 'commit';
+
+    const isHead =
+      typeof message.headCommitId === 'string' &&
+      message.headCommitId.length > 0 &&
+      commit.id === message.headCommitId;
+    const shortHash = commit.id.slice(0, 7);
+    const ariaParts = [
+      commit.subject,
+      `by ${commit.authorName}`,
+      shortHash,
+    ];
+    if (isHead) {
+      ariaParts.push('HEAD', message.branch);
+    }
 
     const button = document.createElement('button');
     button.className = 'commit-button';
     button.type = 'button';
     button.dataset.commitId = commit.id;
-    button.setAttribute('aria-label', `${commit.subject}, by ${commit.authorName}`);
+    button.setAttribute('aria-label', ariaParts.join(', '));
 
     const graphCell = document.createElement('span');
     graphCell.className = 'graph-cell';
     graphCell.setAttribute('aria-hidden', 'true');
     const copy = document.createElement('span');
     copy.className = 'commit-copy';
-    appendTextElement(copy, 'span', 'subject', commit.subject);
+
+    const subjectRow = document.createElement('span');
+    subjectRow.className = 'subject-row';
+    appendTextElement(subjectRow, 'span', 'subject', commit.subject);
+    if (isHead) {
+      const pills = document.createElement('span');
+      pills.className = 'ref-pills';
+      pills.setAttribute('aria-hidden', 'true');
+      appendTextElement(pills, 'span', 'ref-pill', 'HEAD');
+      appendTextElement(pills, 'span', 'ref-pill', message.branch);
+      subjectRow.append(pills);
+    }
+
+    const metaRow = document.createElement('span');
+    metaRow.className = 'meta-row';
+    appendTextElement(
+      metaRow,
+      'span',
+      'meta-left',
+      `${shortHash} · ${commit.authorName}`,
+    );
+    appendTextElement(
+      metaRow,
+      'span',
+      'meta-time',
+      formatCompactRelativeTime(commit.authorDateIso),
+    );
+
+    copy.append(subjectRow, metaRow);
     button.append(graphCell, copy);
 
     button.addEventListener('click', () => selectCommitButton(button));
 
-    item.addEventListener('mouseenter', () => scheduleShowHover(button, commit, branch));
+    item.addEventListener('mouseenter', () =>
+      scheduleShowHover(button, commit, message.branch),
+    );
     item.addEventListener('mouseleave', scheduleHideHover);
-    button.addEventListener('focus', () => showHover(button, commit, branch));
+    button.addEventListener('focus', () => showHover(button, commit, message.branch));
     button.addEventListener('blur', scheduleHideHover);
 
     item.append(button);
@@ -323,6 +370,21 @@ import {
       ? scrollContainer().scrollTop
       : null;
     selectedButton = undefined;
+    const root =
+      typeof message.repoRoot === 'string' && message.repoRoot.length > 0
+        ? message.repoRoot
+        : '';
+    if (repoName instanceof HTMLButtonElement) {
+      if (root) {
+        repoName.hidden = false;
+        repoName.textContent = repoShortName(root, []);
+        repoName.title = root;
+      } else {
+        repoName.hidden = true;
+        repoName.textContent = '';
+        repoName.title = '';
+      }
+    }
     branchName.textContent = message.branch;
     const width = graphWidth(message.laneCount);
     commitList.style.setProperty('--graph-width', `${width}px`);
@@ -333,7 +395,7 @@ import {
     });
     commitList.replaceChildren(
       svg,
-      ...message.commits.map((commit) => createCommit(commit, message.branch)),
+      ...message.commits.map((commit) => createCommit(commit, message)),
     );
     const selectedId = message.selectedCommitId;
     if (typeof selectedId === 'string' && selectedId.length > 0) {
@@ -412,6 +474,12 @@ import {
   switchBranch.addEventListener('click', () => {
     vscode.postMessage({ type: 'switchBranch' });
   });
+
+  if (repoName instanceof HTMLButtonElement) {
+    repoName.addEventListener('click', () => {
+      vscode.postMessage({ type: 'selectRepository' });
+    });
+  }
 
   window.addEventListener('keydown', (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;

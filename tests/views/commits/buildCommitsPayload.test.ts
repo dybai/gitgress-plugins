@@ -27,13 +27,15 @@ describe('buildCommitsPayload', () => {
       },
     ];
 
-    const message = buildCommitsPayload('main', rows, 'replace', true, null);
+    const message = buildCommitsPayload('main', rows, 'replace', true, null, '/repo', 'b');
 
     expect(message.type).toBe('commitsLoaded');
     expect(message.branch).toBe('main');
     expect(message.hasMore).toBe(true);
     expect(message.mode).toBe('replace');
     expect(message.selectedCommitId).toBeNull();
+    expect(message.repoRoot).toBe('/repo');
+    expect(message.headCommitId).toBe('b');
     expect(message.commits).toHaveLength(2);
     expect(message.commits[0]).toMatchObject({ id: 'b', parentIds: ['a'] });
     expect(typeof message.commits[0].lane).toBe('number');

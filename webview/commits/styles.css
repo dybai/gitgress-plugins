@@ -45,7 +45,6 @@ button {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .branch-icon {
@@ -53,6 +52,31 @@ button {
   height: 8px;
   border: 2px solid var(--vscode-gitDecoration-addedResourceForeground);
   border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.repo-name {
+  max-width: 40%;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 4px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 3px;
+  color: var(--vscode-textLink-foreground);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-align: left;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.repo-name:hover {
+  background: var(--vscode-toolbar-hoverBackground);
 }
 
 #branch-name {
@@ -60,6 +84,8 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .quiet-button {
@@ -114,6 +140,7 @@ button {
 
 .commit {
   position: relative;
+  border-bottom: 1px solid var(--vscode-panel-border);
 }
 
 .commit-button {
@@ -122,7 +149,7 @@ button {
   display: grid;
   grid-template-columns: var(--graph-width) minmax(0, 1fr);
   width: 100%;
-  min-height: 34px;
+  min-height: 48px;
   padding: 0;
   border: 0;
   text-align: left;
@@ -146,14 +173,69 @@ button {
 }
 
 .commit-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
   padding: 8px 10px 7px 0;
 }
 
+.subject-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .subject {
   display: block;
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ref-pills {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  align-items: center;
+}
+
+.ref-pill {
+  padding: 0 5px;
+  border: 1px solid var(--vscode-badge-background);
+  border-radius: 3px;
+  color: var(--vscode-badge-foreground);
+  background: var(--vscode-badge-background);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.meta-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.meta-left {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta-time {
+  flex: 0 0 auto;
+  margin-left: auto;
   white-space: nowrap;
 }
 

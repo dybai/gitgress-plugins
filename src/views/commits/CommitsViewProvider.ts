@@ -119,6 +119,9 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
       case 'switchBranch':
         await vscode.commands.executeCommand('gitgress.switchBranch');
         return;
+      case 'selectRepository':
+        await vscode.commands.executeCommand('gitgress.selectRepository');
+        return;
     }
   }
 
@@ -162,6 +165,10 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
         return;
       }
       this.pagination = replacePage(this.pagination, batch, PAGE_SIZE);
+      const tip = await this.gitService.resolveTip(repoRoot, branch);
+      if (!this.isCurrentLoad(version, view)) {
+        return;
+      }
       this.applyMessage(
         buildCommitsPayload(
           branch,
@@ -169,6 +176,8 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
           'replace',
           this.pagination.hasMore,
           selectedCommitId,
+          repoRoot,
+          tip ?? '',
         ),
         version,
         view,
@@ -216,6 +225,10 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
         return;
       }
       this.pagination = appendPage(this.pagination, batch, PAGE_SIZE);
+      const tip = await this.gitService.resolveTip(repoRoot, branch);
+      if (!this.isCurrentLoad(version, view)) {
+        return;
+      }
       this.applyMessage(
         buildCommitsPayload(
           branch,
@@ -223,6 +236,8 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
           'replace',
           this.pagination.hasMore,
           selectedCommitId,
+          repoRoot,
+          tip ?? '',
         ),
         version,
         view,

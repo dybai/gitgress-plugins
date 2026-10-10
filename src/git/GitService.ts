@@ -49,6 +49,24 @@ export class GitService {
     return stdout.trim();
   }
 
+  async resolveTip(repoRoot: string, ref: string): Promise<string | null> {
+    try {
+      const { stdout } = await this.runGit(repoRoot, [
+        'rev-parse',
+        '--verify',
+        '--end-of-options',
+        ref,
+      ]);
+      const tip = stdout.trim();
+      return tip === '' ? null : tip;
+    } catch (error) {
+      if (error instanceof GitCommandFailedError) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
   async listBranches(repoRoot: string): Promise<string[]> {
     const { stdout } = await this.runGit(repoRoot, [
       'for-each-ref',

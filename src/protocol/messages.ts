@@ -30,6 +30,8 @@ export type HostToWebview =
       laneCount: number;
       hasMore: boolean;
       mode: 'replace' | 'append';
+      repoRoot: string;
+      headCommitId: string;
       selectedCommitId?: string | null;
     }
   | { type: 'empty'; reason: 'noRepo' | 'noCommits' | 'error'; message?: string }
@@ -40,6 +42,7 @@ export type WebviewToHost =
   | { type: 'ready' }
   | { type: 'commitSelected'; commitId: string }
   | { type: 'switchBranch' }
+  | { type: 'selectRepository' }
   | { type: 'retry' }
   | { type: 'loadMore' };
 
@@ -100,6 +103,8 @@ export function isHostMessage(value: unknown): value is HostToWebview {
         typeof value.laneCount === 'number' &&
         typeof value.hasMore === 'boolean' &&
         (value.mode === 'replace' || value.mode === 'append') &&
+        isNonEmptyString(value.repoRoot) &&
+        typeof value.headCommitId === 'string' &&
         (value.selectedCommitId === undefined ||
           value.selectedCommitId === null ||
           isNonEmptyString(value.selectedCommitId))
@@ -127,6 +132,7 @@ export function isWebviewToHost(value: unknown): value is WebviewToHost {
   switch (value.type) {
     case 'ready':
     case 'switchBranch':
+    case 'selectRepository':
     case 'retry':
     case 'loadMore':
       return true;
