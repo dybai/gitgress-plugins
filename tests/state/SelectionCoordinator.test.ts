@@ -478,6 +478,66 @@ describe('SelectionCoordinator', () => {
     });
   });
 
+  describe('clearSelection', () => {
+    it('clears the selection and unlocks without re-resolving', () => {
+      const { selection, coordinator } = makeCoordinator({ roots: ['/ws/a'] });
+      coordinator.selectManually('/ws/a');
+      expect(coordinator.isLocked()).toBe(true);
+
+      coordinator.clearSelection();
+
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+    });
+
+    it('allows onIndexUpdated to re-resolve after clearing', () => {
+      const pref = makePreference();
+      const { selection, coordinator } = makeCoordinator({
+        roots: ['/ws/a'],
+        preference: pref,
+      });
+      coordinator.selectManually('/ws/a');
+      coordinator.clearSelection();
+
+      coordinator.onIndexUpdated();
+
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/a');
+    });
+
+    it('keeps the preference by default', () => {
+      const pref = makePreference();
+      const { coordinator } = makeCoordinator({ roots: ['/ws/a'], preference: pref });
+      coordinator.selectManually('/ws/a');
+
+      coordinator.clearSelection();
+
+      expect(pref.get()).toBe('/ws/a');
+    });
+
+    it('drops a matching preference when forgetPreference is set', () => {
+      const pref = makePreference();
+      const { coordinator } = makeCoordinator({ roots: ['/ws/a'], preference: pref });
+      coordinator.selectManually('/ws/a');
+
+      coordinator.clearSelection({ forgetPreference: true });
+
+      expect(pref.get()).toBeNull();
+    });
+
+    it('keeps a preference that points at a different repo', () => {
+      const pref = makePreference('/ws/b');
+      const { selection, coordinator } = makeCoordinator({
+        roots: ['/ws/a', '/ws/b'],
+        preference: pref,
+      });
+      selection.setRepo('/ws/a');
+
+      coordinator.clearSelection({ forgetPreference: true });
+
+      expect(pref.get()).toBe('/ws/b');
+    });
+  });
+
   describe('isLocked', () => {
     it('starts unlocked', () => {
       const { coordinator } = makeCoordinator();

@@ -147,6 +147,30 @@ export class SelectionCoordinator {
     this.resolveInitial();
   }
 
+  /**
+   * Git failed for the selected repository. Clear the selection and unlock so
+   * later index updates / scan completion / editor changes can re-resolve it.
+   * Unlike onSelectedRepoInvalid(), this does not re-resolve immediately, so a
+   * persistently failing repo cannot cause a select → fail → select loop.
+   * The manual preference is dropped only when `forgetPreference` is set and
+   * it points at the failed root (a global failure such as git missing keeps it).
+   */
+  clearSelection(options: { forgetPreference?: boolean } = {}): void {
+    if (options.forgetPreference === true) {
+      const current = this.selection.getSnapshot().repoRoot;
+      const pref = this.preference.get();
+      if (
+        current != null &&
+        pref != null &&
+        normalizeRepoPath(pref) === normalizeRepoPath(current)
+      ) {
+        this.preference.set(null);
+      }
+    }
+    this.selection.setRepo(null);
+    this.locked = false;
+  }
+
   isLocked(): boolean {
     return this.locked;
   }

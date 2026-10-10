@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { gitErrorMessage, refreshRepository } from '../../src/commands/refresh';
 import { GitCommandFailedError, GitNotFoundError } from '../../src/git/errors';
+import { SelectionState } from '../../src/state/SelectionState';
 
 function makeSelection(snapshot: {
   repoRoot: string | null;
@@ -125,6 +126,81 @@ describe('refreshRepository', () => {
 
     expect(selection.setRepo).not.toHaveBeenCalled();
     expect(selection.setBranch).not.toHaveBeenCalled();
+  });
+
+  describe('stale results after the selected repository changes', () => {
+    function deferred<T>() {
+      let resolve!: (value: T) => void;
+      let reject!: (reason: unknown) => void;
+      const promise = new Promise<T>((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      return { promise, resolve, reject };
+    }
+
+    it('discards a pending currentBranch result for the previous repo', async () => {
+      const selection = new SelectionState();
+      const lookupA = deferred<string>();
+      const gitService = {
+        currentBranch: vi.fn((repo: string) =>
+          repo === '/a' ? lookupA.promise : Promise.resolve('main-b'),
+        ),
+        listBranches: vi.fn(async () => ['main-b']),
+      };
+
+      selection.setRepo('/a');
+      const pendingA = refreshRepository(gitService, selection);
+      selection.setRepo('/b');
+      await refreshRepository(gitService, selection);
+      expect(selection.getSnapshot()).toMatchObject({ repoRoot: '/b', branch: 'main-b' });
+
+      lookupA.resolve('main-a');
+      await pendingA;
+
+      expect(selection.getSnapshot()).toMatchObject({ repoRoot: '/b', branch: 'main-b' });
+    });
+
+    it('discards a pending listBranches result for the previous repo', async () => {
+      const selection = new SelectionState();
+      const listA = deferred<string[]>();
+      const gitService = {
+        currentBranch: vi.fn(async (repo: string) => (repo === '/a' ? 'main-a' : 'main-b')),
+        listBranches: vi.fn((repo: string) =>
+          repo === '/a' ? listA.promise : Promise.resolve(['main-b']),
+        ),
+      };
+
+      selection.setRepo('/a');
+      selection.setBranch('feature');
+      const pendingA = refreshRepository(gitService, selection);
+      selection.setRepo('/b');
+      selection.setBranch('main-b');
+
+      listA.resolve(['main-a']);
+      await pendingA;
+
+      expect(selection.getSnapshot()).toMatchObject({ repoRoot: '/b', branch: 'main-b' });
+    });
+
+    it('swallows a stale rejection but still rethrows for the current repo', async () => {
+      const selection = new SelectionState();
+      const lookupA = deferred<string>();
+      const gitService = {
+        currentBranch: vi.fn((repo: string) =>
+          repo === '/a' ? lookupA.promise : Promise.reject(new Error('boom-b')),
+        ),
+        listBranches: vi.fn(async () => []),
+      };
+
+      selection.setRepo('/a');
+      const pendingA = refreshRepository(gitService, selection);
+      selection.setRepo('/b');
+      lookupA.reject(new Error('boom-a'));
+      await expect(pendingA).resolves.toBeUndefined();
+
+      await expect(refreshRepository(gitService, selection)).rejects.toThrow('boom-b');
+    });
   });
 
   it('maps typed git errors to actionable messages', () => {

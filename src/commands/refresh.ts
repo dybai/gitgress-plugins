@@ -19,6 +19,10 @@ export function gitErrorMessage(error: unknown): string {
 /**
  * Ensure the display branch is valid for the currently selected repository.
  * Never picks a repository: selection of the repo is owned by SelectionCoordinator.
+ *
+ * The selected repository can change while Git is being queried. Results (and
+ * errors) belonging to a repository that is no longer selected are discarded
+ * so they can never be applied to, or clear, the newer selection.
  */
 export async function refreshRepository(
   gitService: Pick<GitService, 'currentBranch' | 'listBranches'>,
@@ -28,16 +32,36 @@ export async function refreshRepository(
   if (repoRoot === null) {
     return;
   }
+  const isStale = (): boolean => selection.getSnapshot().repoRoot !== repoRoot;
 
-  const currentBranch = (await gitService.currentBranch(repoRoot)) || 'HEAD';
-  const { branch } = selection.getSnapshot();
-  if (branch === null) {
-    selection.setBranch(currentBranch);
-    return;
-  }
+  try {
+    const currentBranch = (await gitService.currentBranch(repoRoot)) || 'HEAD';
+    if (isStale()) {
+      return;
+    }
+    const { branch } = selection.getSnapshot();
+    if (branch === null) {
+      selection.setBranch(currentBranch);
+      return;
+    }
 
-  const branches = await gitService.listBranches(repoRoot);
-  if (branch !== 'HEAD' && !branches.includes(branch)) {
-    selection.setBranch(currentBranch);
+    const branches = await gitService.listBranches(repoRoot);
+    if (isStale()) {
+      return;
+    }
+    // The display branch may have changed while branches were listed.
+    const latestBranch = selection.getSnapshot().branch;
+    if (
+      latestBranch !== null &&
+      latestBranch !== 'HEAD' &&
+      !branches.includes(latestBranch)
+    ) {
+      selection.setBranch(currentBranch);
+    }
+  } catch (error) {
+    if (isStale()) {
+      return;
+    }
+    throw error;
   }
 }

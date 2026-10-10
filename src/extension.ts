@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { registerOpenFileDiff } from './commands/openFileDiff';
 import { refreshRepository, gitErrorMessage } from './commands/refresh';
+import { runWithSelectionRecovery } from './commands/selectionRecovery';
 import {
   explicitRefreshGitgress,
   reloadRepositoryState,
@@ -94,32 +95,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     coordinator,
   });
 
-  const ensureBranch = async (): Promise<void> => {
-    try {
-      await refreshRepository(gitService, selection);
-    } catch (error) {
-      selection.setRepo(null);
-      await showError(error);
-    }
-  };
+  const recoveryDeps = { coordinator, showError };
+  const ensureBranch = (): Promise<void> =>
+    runWithSelectionRecovery(recoveryDeps, () => refreshRepository(gitService, selection));
 
-  const reloadRepository = async (): Promise<void> => {
-    try {
-      await reloadRepositoryState(reloadDeps());
-    } catch (error) {
-      selection.setRepo(null);
-      await showError(error);
-    }
-  };
+  const reloadRepository = (): Promise<void> =>
+    runWithSelectionRecovery(recoveryDeps, () => reloadRepositoryState(reloadDeps()));
 
-  const refreshGitgress = async (): Promise<void> => {
-    try {
-      await explicitRefreshGitgress(reloadDeps());
-    } catch (error) {
-      selection.setRepo(null);
-      await showError(error);
-    }
-  };
+  const refreshGitgress = (): Promise<void> =>
+    runWithSelectionRecovery(recoveryDeps, () => explicitRefreshGitgress(reloadDeps()));
 
   let lastScanStatus: ScanStatus | null = null;
   const onIndexChanged = (): void => {
