@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { GitCommandFailedError, GitNotFoundError } from './errors';
+import { existsSync } from 'node:fs';
+import { GitCommandFailedError, GitNotFoundError, NotARepositoryError } from './errors';
 
 export type RunGit = (
   repoRoot: string,
@@ -35,8 +36,19 @@ const defaultSpawnGit: SpawnGit = (repoRoot, args) =>
     });
   });
 
-export function createRunGit(spawnImpl: SpawnGit = defaultSpawnGit): RunGit {
+export type RepoRootExists = (repoRoot: string) => boolean;
+
+const defaultRepoRootExists: RepoRootExists = (repoRoot) => existsSync(repoRoot);
+
+export function createRunGit(
+  spawnImpl: SpawnGit = defaultSpawnGit,
+  repoRootExists: RepoRootExists = defaultRepoRootExists,
+): RunGit {
   return async (repoRoot, args) => {
+    if (!repoRootExists(repoRoot)) {
+      throw new NotARepositoryError(repoRoot);
+    }
+
     let result: Awaited<ReturnType<SpawnGit>>;
     try {
       result = await spawnImpl(repoRoot, args);

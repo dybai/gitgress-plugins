@@ -8,7 +8,11 @@ export type ReloadHandlersDeps = {
   filesProvider: { refresh(): void };
   commitsProvider: { refresh(): void };
   repoIndex: { startScan(): void };
-  coordinator: { resolveInitial(): void; onIndexUpdated(): void };
+  coordinator: {
+    resolveInitial(): void;
+    onIndexUpdated(): void;
+    clearReSelectSuppression(): void;
+  };
 };
 
 /**
@@ -18,6 +22,7 @@ export type ReloadHandlersDeps = {
  */
 export async function reloadRepositoryState(deps: ReloadHandlersDeps): Promise<void> {
   deps.repoIndex.startScan();
+  deps.coordinator.clearReSelectSuppression();
   deps.coordinator.resolveInitial();
   await refreshRepository(deps.gitService, deps.selection);
   deps.filesProvider.refresh();

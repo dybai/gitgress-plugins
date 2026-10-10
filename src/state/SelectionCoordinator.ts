@@ -9,6 +9,8 @@ export type ManualRepoPreference = {
 export class SelectionCoordinator {
   private locked = false;
   private indexAuthoritative = false;
+  /** Failed root: skip re-select until scan idle or explicit user action. */
+  private reSelectSuppressedRoot: string | null = null;
 
   constructor(
     private readonly selection: Pick<SelectionState, 'getSnapshot' | 'setRepo'>,
@@ -22,7 +24,10 @@ export class SelectionCoordinator {
     const pref = this.preference.get();
     if (pref != null) {
       const normalizedPref = normalizeRepoPath(pref);
-      if (this.indexContains(normalizedPref)) {
+      if (
+        this.indexContains(normalizedPref) &&
+        !this.isReSelectSuppressed(normalizedPref)
+      ) {
         this.selection.setRepo(normalizedPref);
         this.locked = true;
         return;
@@ -31,13 +36,16 @@ export class SelectionCoordinator {
       // index is non-empty and provably omits it. An empty non-authoritative
       // index may be transient before the first scan completes, so preserve
       // the preference to allow the preferred-appeared path in onIndexUpdated.
-      if (this.indexAuthoritative || this.getIndexedRoots().length > 0) {
+      if (
+        (this.indexAuthoritative || this.getIndexedRoots().length > 0) &&
+        !this.indexContains(normalizedPref)
+      ) {
         this.preference.set(null);
       }
     }
 
     const owner = this.editorOwningRoot();
-    if (owner != null) {
+    if (owner != null && !this.isReSelectSuppressed(normalizeRepoPath(owner))) {
       this.selection.setRepo(owner);
       this.locked = true;
       return;
@@ -61,19 +69,25 @@ export class SelectionCoordinator {
     const pref = this.preference.get();
     if (pref != null) {
       const normalizedPref = normalizeRepoPath(pref);
-      if (this.indexContains(normalizedPref)) {
+      if (
+        this.indexContains(normalizedPref) &&
+        !this.isReSelectSuppressed(normalizedPref)
+      ) {
         this.selection.setRepo(normalizedPref);
         this.locked = true;
         return;
       }
-      if (this.indexAuthoritative || this.getIndexedRoots().length > 0) {
+      if (
+        (this.indexAuthoritative || this.getIndexedRoots().length > 0) &&
+        !this.indexContains(normalizedPref)
+      ) {
         this.preference.set(null);
       }
     }
 
     if (this.selection.getSnapshot().repoRoot === null) {
       const owner = this.editorOwningRoot();
-      if (owner != null) {
+      if (owner != null && !this.isReSelectSuppressed(normalizeRepoPath(owner))) {
         this.selection.setRepo(owner);
         this.locked = true;
       }
@@ -87,6 +101,7 @@ export class SelectionCoordinator {
    * index is unlocked and re-resolved.
    */
   onScanIdle(): void {
+    this.reSelectSuppressedRoot = null;
     this.indexAuthoritative = true;
     const pref = this.preference.get();
     if (pref != null && !this.indexContains(normalizeRepoPath(pref))) {
@@ -114,13 +129,19 @@ export class SelectionCoordinator {
       return;
     }
     const owner = this.editorOwningRoot();
-    if (owner != null) {
+    if (owner != null && !this.isReSelectSuppressed(normalizeRepoPath(owner))) {
       this.selection.setRepo(owner);
       this.locked = true;
     }
   }
 
+  /** Allow index / coordinator resolution after explicit reload or workspace change. */
+  clearReSelectSuppression(): void {
+    this.reSelectSuppressedRoot = null;
+  }
+
   selectManually(repoRoot: string): void {
+    this.reSelectSuppressedRoot = null;
     const normalized = normalizeRepoPath(repoRoot);
     this.selection.setRepo(normalized);
     this.locked = true;
@@ -156,8 +177,8 @@ export class SelectionCoordinator {
    * it points at the failed root (a global failure such as git missing keeps it).
    */
   clearSelection(options: { forgetPreference?: boolean } = {}): void {
+    const current = this.selection.getSnapshot().repoRoot;
     if (options.forgetPreference === true) {
-      const current = this.selection.getSnapshot().repoRoot;
       const pref = this.preference.get();
       if (
         current != null &&
@@ -167,12 +188,22 @@ export class SelectionCoordinator {
         this.preference.set(null);
       }
     }
+    if (current != null) {
+      this.reSelectSuppressedRoot = normalizeRepoPath(current);
+    }
     this.selection.setRepo(null);
     this.locked = false;
   }
 
   isLocked(): boolean {
     return this.locked;
+  }
+
+  private isReSelectSuppressed(normalizedRoot: string): boolean {
+    return (
+      this.reSelectSuppressedRoot !== null &&
+      this.reSelectSuppressedRoot === normalizedRoot
+    );
   }
 
   private indexContains(normalizedRoot: string): boolean {

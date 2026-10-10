@@ -22,7 +22,11 @@ function makeDeps(repoRoot: string | null = '/repo') {
     filesProvider: { refresh: vi.fn() },
     commitsProvider: { refresh: vi.fn() },
     repoIndex: { startScan: vi.fn() },
-    coordinator: { resolveInitial: vi.fn(), onIndexUpdated: vi.fn() },
+    coordinator: {
+      resolveInitial: vi.fn(),
+      onIndexUpdated: vi.fn(),
+      clearReSelectSuppression: vi.fn(),
+    },
   };
 }
 
@@ -33,6 +37,7 @@ describe('reloadHandlers', () => {
     await reloadRepositoryState(deps);
 
     expect(deps.repoIndex.startScan).toHaveBeenCalledOnce();
+    expect(deps.coordinator.clearReSelectSuppression).toHaveBeenCalledOnce();
     expect(deps.coordinator.resolveInitial).toHaveBeenCalledOnce();
     expect(deps.filesProvider.refresh).toHaveBeenCalledOnce();
     expect(deps.commitsProvider.refresh).not.toHaveBeenCalled();
@@ -42,6 +47,9 @@ describe('reloadHandlers', () => {
   it('reloadRepositoryState ensures the branch for the resolved repo after resolveInitial', async () => {
     const deps = makeDeps();
     const order: string[] = [];
+    deps.coordinator.clearReSelectSuppression.mockImplementation(() => {
+      order.push('clearReSelectSuppression');
+    });
     deps.coordinator.resolveInitial.mockImplementation(() => {
       order.push('resolveInitial');
     });
@@ -57,7 +65,7 @@ describe('reloadHandlers', () => {
 
     await reloadRepositoryState(deps);
 
-    expect(order).toEqual(['resolveInitial', 'currentBranch']);
+    expect(order).toEqual(['clearReSelectSuppression', 'resolveInitial', 'currentBranch']);
     expect(deps.selection.setBranch).toHaveBeenCalledWith('main');
   });
 

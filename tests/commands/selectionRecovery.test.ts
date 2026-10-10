@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { refreshRepository } from '../../src/commands/refresh';
 import { runWithSelectionRecovery } from '../../src/commands/selectionRecovery';
 import { GitCommandFailedError, GitNotFoundError } from '../../src/git/errors';
+import { GitService } from '../../src/git/GitService';
+import { createRunGit } from '../../src/git/runGit';
 import { SelectionCoordinator } from '../../src/state/SelectionCoordinator';
 import { SelectionState } from '../../src/state/SelectionState';
 
@@ -48,9 +50,58 @@ describe('runWithSelectionRecovery', () => {
     expect(coordinator.isLocked()).toBe(false);
     expect(showError).toHaveBeenCalledTimes(1);
 
-    // Global failure keeps the manual preference, so the index can restore it.
+    // Global failure keeps the preference, but re-select waits until scan idle.
     coordinator.onIndexUpdated();
+    expect(selection.getSnapshot().repoRoot).toBeNull();
+
+    coordinator.onScanIdle();
     expect(selection.getSnapshot().repoRoot).toBe('/a');
+  });
+
+  it('runs recovery only once when index updates arrive before scan idle', async () => {
+    const roots = ['/a'];
+    const { selection, coordinator, showError } = setup(roots);
+    const gitAction = vi.fn(async () => {
+      throw new GitNotFoundError();
+    });
+
+    coordinator.selectManually('/a');
+    selection.subscribe((snapshot) => {
+      if (snapshot.repoRoot !== null && snapshot.branch === null) {
+        void runWithSelectionRecovery({ coordinator, showError }, gitAction);
+      }
+    });
+
+    await runWithSelectionRecovery({ coordinator, showError }, gitAction);
+
+    coordinator.onIndexUpdated();
+    coordinator.onIndexUpdated();
+    await Promise.resolve();
+
+    expect(gitAction).toHaveBeenCalledTimes(1);
+    expect(showError).toHaveBeenCalledTimes(1);
+    expect(selection.getSnapshot().repoRoot).toBeNull();
+  });
+
+  it('forgets preference when createRunGit rejects a missing repo root', async () => {
+    const { selection, coordinator, showError, getPref } = setup(['/gone']);
+    coordinator.selectManually('/gone');
+
+    const gitService = new GitService(
+      createRunGit(
+        vi.fn(async () => ({ code: 0, stdout: 'main\n', stderr: '' })),
+        () => false,
+      ),
+    );
+
+    await runWithSelectionRecovery({ coordinator, showError }, () =>
+      refreshRepository(gitService, selection),
+    );
+
+    expect(getPref()).toBeNull();
+    coordinator.onIndexUpdated();
+    expect(selection.getSnapshot().repoRoot).toBeNull();
+    expect(showError).toHaveBeenCalledTimes(1);
   });
 
   it('forgets a matching preference when the selected repository is invalid', async () => {
@@ -80,6 +131,8 @@ describe('runWithSelectionRecovery', () => {
     expect(coordinator.isLocked()).toBe(false);
     expect(getPref()).toBe('/a');
     coordinator.onIndexUpdated();
+    expect(selection.getSnapshot().repoRoot).toBeNull();
+    coordinator.onScanIdle();
     expect(selection.getSnapshot().repoRoot).toBe('/a');
   });
 

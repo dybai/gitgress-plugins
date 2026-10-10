@@ -490,7 +490,7 @@ describe('SelectionCoordinator', () => {
       expect(coordinator.isLocked()).toBe(false);
     });
 
-    it('allows onIndexUpdated to re-resolve after clearing', () => {
+    it('defers onIndexUpdated re-resolve until scan idle after clearing', () => {
       const pref = makePreference();
       const { selection, coordinator } = makeCoordinator({
         roots: ['/ws/a'],
@@ -500,6 +500,22 @@ describe('SelectionCoordinator', () => {
       coordinator.clearSelection();
 
       coordinator.onIndexUpdated();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+
+      coordinator.onScanIdle();
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/a');
+    });
+
+    it('allows resolveInitial immediately after clearReSelectSuppression', () => {
+      const pref = makePreference();
+      const { selection, coordinator } = makeCoordinator({
+        roots: ['/ws/a'],
+        preference: pref,
+      });
+      coordinator.selectManually('/ws/a');
+      coordinator.clearSelection();
+      coordinator.clearReSelectSuppression();
+      coordinator.resolveInitial();
 
       expect(selection.getSnapshot().repoRoot).toBe('/ws/a');
     });
