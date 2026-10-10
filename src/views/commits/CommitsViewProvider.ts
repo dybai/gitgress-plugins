@@ -166,6 +166,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
       }
       this.pagination = replacePage(this.pagination, batch, PAGE_SIZE);
       const tip = await this.gitService.resolveTip(repoRoot, branch);
+      const tips = await this.gitService.listTips(repoRoot);
       if (!this.isCurrentLoad(version, view)) {
         return;
       }
@@ -178,6 +179,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
           selectedCommitId,
           repoRoot,
           tip ?? '',
+          tips,
         ),
         version,
         view,
@@ -226,6 +228,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
       }
       this.pagination = appendPage(this.pagination, batch, PAGE_SIZE);
       const tip = await this.gitService.resolveTip(repoRoot, branch);
+      const tips = await this.gitService.listTips(repoRoot);
       if (!this.isCurrentLoad(version, view)) {
         return;
       }
@@ -238,6 +241,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
           selectedCommitId,
           repoRoot,
           tip ?? '',
+          tips,
         ),
         version,
         view,

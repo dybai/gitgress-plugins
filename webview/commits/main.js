@@ -3,8 +3,14 @@ import {
   isCommitNavKey,
   nextCommitIndex,
 } from '../../src/views/commits/commitKeyboardNav.ts';
+import {
+  foldRemoteLabel,
+  primaryRef,
+  secondaryRefs,
+} from '../../src/views/commits/attachCommitRefs.ts';
 import { formatCompactRelativeTime } from '../../src/views/commits/formatCompactRelativeTime.ts';
 import { repoShortName } from '../../src/views/commits/repoShortName.ts';
+import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
 
   const vscode = acquireVsCodeApi();
   const status = document.querySelector('#status');
@@ -198,29 +204,157 @@ import { repoShortName } from '../../src/views/commits/repoShortName.ts';
     vscode.postMessage({ type: 'commitSelected', commitId });
   };
 
-  const createCommit = (commit, message) => {
-    const item = document.createElement('li');
-    item.className = 'commit';
+  const commitIndexById = (message) => {
+    const map = new Map();
+    message.commits.forEach((entry, index) => {
+      map.set(entry.id, index);
+    });
+    return map;
+  };
 
+  const jumpToTip = (targetId) => {
+    const button = commitList.querySelector(
+      `[data-commit-id="${CSS.escape(targetId)}"]`,
+    );
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    selectCommitButton(button);
+    button.focus({ preventScroll: true });
+    button.scrollIntoView({ block: 'nearest' });
+  };
+
+  const appendJumpControls = (parent, commitId, message) => {
+    const tipIds = Array.isArray(message.tipCommitIds) ? message.tipCommitIds : [];
+    const indexById = commitIndexById(message);
+    const jump = document.createElement('span');
+    jump.className = 'tip-jump';
+
+    const device = document.createElement('span');
+    device.className = 'tip-jump-device';
+    device.setAttribute('aria-hidden', 'true');
+    device.textContent = '⌂';
+    jump.append(device);
+
+    for (const direction of ['up', 'down']) {
+      const target = tipJumpTarget(tipIds, commitId, direction, indexById);
+      const control = document.createElement('button');
+      control.type = 'button';
+      control.className = `tip-jump-${direction}`;
+      control.disabled = target === null;
+      if (target) {
+        const labelName =
+          message.commits.find((entry) => entry.id === target.targetId)?.refs?.[0]
+            ?.name ?? target.targetId.slice(0, 7);
+        control.title = `Jump to ${labelName} · ${target.distance} away`;
+        control.setAttribute(
+          'aria-label',
+          `Jump ${direction} to ${labelName}, ${target.distance} away`,
+        );
+        control.textContent =
+          direction === 'up' ? `↑${target.distance}` : `↓${target.distance}`;
+        control.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          jumpToTip(target.targetId);
+        });
+      } else {
+        control.title = `No tip ${direction === 'up' ? 'above' : 'below'}`;
+        control.setAttribute(
+          'aria-label',
+          `No tip ${direction === 'up' ? 'above' : 'below'}`,
+        );
+        control.textContent = direction === 'up' ? '↑' : '↓';
+      }
+      jump.append(control);
+    }
+
+    parent.append(jump);
+  };
+
+  const appendRefPills = (subjectRow, commit, message) => {
+    const refs = Array.isArray(commit.refs) ? commit.refs : [];
     const isHead =
       typeof message.headCommitId === 'string' &&
       message.headCommitId.length > 0 &&
       commit.id === message.headCommitId;
+    const isTip =
+      Array.isArray(message.tipCommitIds) && message.tipCommitIds.includes(commit.id);
+
+    if (!isHead && refs.length === 0) {
+      return [];
+    }
+
+    const pills = document.createElement('span');
+    pills.className = 'ref-pills';
+
+    if (isHead) {
+      appendTextElement(pills, 'span', 'ref-pill', 'HEAD');
+    }
+
+    const primary = primaryRef(refs, message.branch);
+    if (primary) {
+      const folded = foldRemoteLabel(primary, refs);
+      const compound = document.createElement('span');
+      compound.className =
+        primary.kind === 'remote' ? 'ref-pill ref-pill-remote tip-compound' : 'ref-pill tip-compound';
+
+      const names = document.createElement('span');
+      names.className = 'tip-names';
+      appendTextElement(names, 'span', 'tip-name', primary.name);
+      if (folded) {
+        appendTextElement(names, 'span', 'tip-remote', folded);
+      }
+      compound.append(names);
+
+      if (isTip) {
+        appendJumpControls(compound, commit.id, message);
+      }
+
+      pills.append(compound);
+
+      for (const ref of secondaryRefs(refs, primary, folded)) {
+        const pill = appendTextElement(
+          pills,
+          'span',
+          ref.kind === 'remote' ? 'ref-pill ref-pill-remote' : 'ref-pill',
+          ref.name,
+        );
+        void pill;
+      }
+    } else if (isTip) {
+      const compound = document.createElement('span');
+      compound.className = 'ref-pill tip-compound';
+      appendJumpControls(compound, commit.id, message);
+      pills.append(compound);
+    }
+
+    subjectRow.append(pills);
+    const aria = [];
+    if (isHead) {
+      aria.push('HEAD');
+    }
+    for (const ref of refs) {
+      aria.push(ref.name);
+    }
+    return aria;
+  };
+
+  const createCommit = (commit, message) => {
+    const item = document.createElement('li');
+    item.className = 'commit';
+
     const shortHash = commit.id.slice(0, 7);
     const ariaParts = [
       commit.subject,
       `by ${commit.authorName}`,
       shortHash,
     ];
-    if (isHead) {
-      ariaParts.push('HEAD', message.branch);
-    }
 
     const button = document.createElement('button');
     button.className = 'commit-button';
     button.type = 'button';
     button.dataset.commitId = commit.id;
-    button.setAttribute('aria-label', ariaParts.join(', '));
 
     const graphCell = document.createElement('span');
     graphCell.className = 'graph-cell';
@@ -231,14 +365,8 @@ import { repoShortName } from '../../src/views/commits/repoShortName.ts';
     const subjectRow = document.createElement('span');
     subjectRow.className = 'subject-row';
     appendTextElement(subjectRow, 'span', 'subject', commit.subject);
-    if (isHead) {
-      const pills = document.createElement('span');
-      pills.className = 'ref-pills';
-      pills.setAttribute('aria-hidden', 'true');
-      appendTextElement(pills, 'span', 'ref-pill', 'HEAD');
-      appendTextElement(pills, 'span', 'ref-pill', message.branch);
-      subjectRow.append(pills);
-    }
+    ariaParts.push(...appendRefPills(subjectRow, commit, message));
+    button.setAttribute('aria-label', ariaParts.join(', '));
 
     const metaRow = document.createElement('span');
     metaRow.className = 'meta-row';

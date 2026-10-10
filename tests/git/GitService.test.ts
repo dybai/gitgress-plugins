@@ -66,6 +66,31 @@ describe('GitService', () => {
     await expect(new GitService(runGit).resolveTip('/repo', 'missing')).resolves.toBeNull();
   });
 
+  it('lists local and remote tips and skips remote HEAD', async () => {
+    const runGit = vi.fn<RunGit>(async () => ({
+      stdout: [
+        'aaa refs/heads/main main',
+        'bbb refs/heads/feature/x feature/x',
+        'ccc refs/remotes/origin/main origin/main',
+        'ddd refs/remotes/origin/HEAD origin/HEAD',
+        '',
+      ].join('\n'),
+      stderr: '',
+    }));
+
+    await expect(new GitService(runGit).listTips('/repo')).resolves.toEqual([
+      { name: 'main', kind: 'local', commitId: 'aaa' },
+      { name: 'feature/x', kind: 'local', commitId: 'bbb' },
+      { name: 'origin/main', kind: 'remote', commitId: 'ccc' },
+    ]);
+    expect(runGit).toHaveBeenCalledWith('/repo', [
+      'for-each-ref',
+      '--format=%(objectname) %(refname) %(refname:short)',
+      'refs/heads',
+      'refs/remotes',
+    ]);
+  });
+
   it('lists local branches without decoration or blank lines', async () => {
     const runGit = vi.fn<RunGit>(async () => ({
       stdout: 'main\nfeature/one\n\n',

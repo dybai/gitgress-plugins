@@ -79,6 +79,52 @@ export class GitService {
       .filter((branch) => branch !== '');
   }
 
+  async listTips(
+    repoRoot: string,
+  ): Promise<Array<{ name: string; kind: 'local' | 'remote'; commitId: string }>> {
+    const { stdout } = await this.runGit(repoRoot, [
+      'for-each-ref',
+      '--format=%(objectname) %(refname) %(refname:short)',
+      'refs/heads',
+      'refs/remotes',
+    ]);
+    const tips: Array<{ name: string; kind: 'local' | 'remote'; commitId: string }> = [];
+    for (const line of stdout.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (trimmed === '') {
+        continue;
+      }
+      const firstSpace = trimmed.indexOf(' ');
+      if (firstSpace <= 0) {
+        continue;
+      }
+      const commitId = trimmed.slice(0, firstSpace);
+      const rest = trimmed.slice(firstSpace + 1).trim();
+      const secondSpace = rest.indexOf(' ');
+      if (secondSpace <= 0) {
+        continue;
+      }
+      const refname = rest.slice(0, secondSpace);
+      const name = rest.slice(secondSpace + 1).trim();
+      if (commitId === '' || name === '') {
+        continue;
+      }
+      if (refname.startsWith('refs/remotes/') && name.endsWith('/HEAD')) {
+        continue;
+      }
+      let kind: 'local' | 'remote';
+      if (refname.startsWith('refs/heads/')) {
+        kind = 'local';
+      } else if (refname.startsWith('refs/remotes/')) {
+        kind = 'remote';
+      } else {
+        continue;
+      }
+      tips.push({ name, kind, commitId });
+    }
+    return tips;
+  }
+
   async log(
     repoRoot: string,
     branch: string,

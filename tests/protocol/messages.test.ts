@@ -13,6 +13,7 @@ const validCommit = {
   parentIds: ['def'],
   lane: 0,
   colorIndex: 1,
+  refs: [] as { name: string; kind: 'local' | 'remote' }[],
 };
 
 const validEdge = {
@@ -36,6 +37,7 @@ function validCommitsLoaded(overrides: Record<string, unknown> = {}) {
     mode: 'replace' as const,
     repoRoot: '/repo',
     headCommitId: 'abc',
+    tipCommitIds: ['abc'],
     ...overrides,
   };
 }
@@ -90,6 +92,34 @@ describe('isHostMessage', () => {
   it('rejects commitsLoaded when headCommitId is missing', () => {
     const { headCommitId: _, ...rest } = validCommitsLoaded();
     expect(isHostMessage(rest)).toBe(false);
+  });
+
+  it('rejects commitsLoaded when tipCommitIds is missing', () => {
+    const { tipCommitIds: _, ...rest } = validCommitsLoaded();
+    expect(isHostMessage(rest)).toBe(false);
+  });
+
+  it('rejects commits when refs is missing', () => {
+    const { refs: _, ...withoutRefs } = validCommit;
+    expect(isHostMessage(validCommitsLoaded({ commits: [withoutRefs] }))).toBe(false);
+  });
+
+  it('accepts commits with local and remote refs', () => {
+    expect(
+      isHostMessage(
+        validCommitsLoaded({
+          commits: [
+            {
+              ...validCommit,
+              refs: [
+                { name: 'main', kind: 'local' },
+                { name: 'origin/main', kind: 'remote' },
+              ],
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
   });
 
   it('accepts scanStatus idle', () => {

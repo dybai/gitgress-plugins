@@ -27,7 +27,19 @@ describe('buildCommitsPayload', () => {
       },
     ];
 
-    const message = buildCommitsPayload('main', rows, 'replace', true, null, '/repo', 'b');
+    const message = buildCommitsPayload(
+      'main',
+      rows,
+      'replace',
+      true,
+      null,
+      '/repo',
+      'b',
+      [
+        { name: 'main', kind: 'local', commitId: 'b' },
+        { name: 'origin/main', kind: 'remote', commitId: 'a' },
+      ],
+    );
 
     expect(message.type).toBe('commitsLoaded');
     expect(message.branch).toBe('main');
@@ -36,8 +48,14 @@ describe('buildCommitsPayload', () => {
     expect(message.selectedCommitId).toBeNull();
     expect(message.repoRoot).toBe('/repo');
     expect(message.headCommitId).toBe('b');
+    expect(message.tipCommitIds).toEqual(['b', 'a']);
     expect(message.commits).toHaveLength(2);
-    expect(message.commits[0]).toMatchObject({ id: 'b', parentIds: ['a'] });
+    expect(message.commits[0]).toMatchObject({
+      id: 'b',
+      parentIds: ['a'],
+      refs: [{ name: 'main', kind: 'local' }],
+    });
+    expect(message.commits[1].refs).toEqual([{ name: 'origin/main', kind: 'remote' }]);
     expect(typeof message.commits[0].lane).toBe('number');
     expect(message.edges).toEqual(expect.any(Array));
     expect(message.edges[0]).toMatchObject({ viaLane: 0 });

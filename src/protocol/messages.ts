@@ -8,6 +8,11 @@ export type GraphEdgeDto = {
   truncated: boolean;
 };
 
+export type CommitRefDto = {
+  name: string;
+  kind: 'local' | 'remote';
+};
+
 export type CommitDto = {
   id: string;
   subject: string;
@@ -19,6 +24,7 @@ export type CommitDto = {
   parentIds: string[];
   lane: number;
   colorIndex: number;
+  refs: CommitRefDto[];
 };
 
 export type HostToWebview =
@@ -32,6 +38,7 @@ export type HostToWebview =
       mode: 'replace' | 'append';
       repoRoot: string;
       headCommitId: string;
+      tipCommitIds: string[];
       selectedCommitId?: string | null;
     }
   | { type: 'empty'; reason: 'noRepo' | 'noCommits' | 'error'; message?: string }
@@ -69,6 +76,13 @@ function isGraphEdgeDto(value: unknown): value is GraphEdgeDto {
   );
 }
 
+function isCommitRefDto(value: unknown): value is CommitRefDto {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return isNonEmptyString(value.name) && (value.kind === 'local' || value.kind === 'remote');
+}
+
 function isCommitDto(value: unknown): value is CommitDto {
   if (!isRecord(value)) {
     return false;
@@ -84,7 +98,9 @@ function isCommitDto(value: unknown): value is CommitDto {
     Array.isArray(value.parentIds) &&
     value.parentIds.every(isNonEmptyString) &&
     typeof value.lane === 'number' &&
-    typeof value.colorIndex === 'number'
+    typeof value.colorIndex === 'number' &&
+    Array.isArray(value.refs) &&
+    value.refs.every(isCommitRefDto)
   );
 }
 
@@ -105,6 +121,8 @@ export function isHostMessage(value: unknown): value is HostToWebview {
         (value.mode === 'replace' || value.mode === 'append') &&
         isNonEmptyString(value.repoRoot) &&
         typeof value.headCommitId === 'string' &&
+        Array.isArray(value.tipCommitIds) &&
+        value.tipCommitIds.every(isNonEmptyString) &&
         (value.selectedCommitId === undefined ||
           value.selectedCommitId === null ||
           isNonEmptyString(value.selectedCommitId))

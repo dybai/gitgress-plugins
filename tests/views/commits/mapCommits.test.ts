@@ -48,6 +48,7 @@ describe('toCommitDto', () => {
       parentIds: longCommit.parentIds,
       lane: layout.lane,
       colorIndex: layout.colorIndex,
+      refs: [],
     });
   });
 

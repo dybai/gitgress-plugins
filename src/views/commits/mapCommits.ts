@@ -14,6 +14,7 @@ export function truncateSubject(subject: string, max = 72): string {
 export function toCommitDto(
   row: CommitSummary,
   layout: { lane: number; colorIndex: number },
+  refs: CommitDto['refs'] = [],
 ): CommitDto {
   return {
     id: row.id,
@@ -26,5 +27,6 @@ export function toCommitDto(
     parentIds: row.parentIds,
     lane: layout.lane,
     colorIndex: layout.colorIndex,
+    refs,
   };
 }
