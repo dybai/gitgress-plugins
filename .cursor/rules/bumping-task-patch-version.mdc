@@ -1,0 +1,37 @@
+---
+description: Code-changing tasks must bump package.json patch on the first commit (max across worktrees + 1)
+alwaysApply: true
+---
+
+# Bumping Task Patch Version
+
+Every code-changing task claims a unique patch on its **first commit**, from the
+**max** `package.json` version across worktrees/branches — not the local file alone.
+
+**Iron Law:** No first commit of a code-changing task without a patch bump from max+1.
+
+## When
+
+- **Do:** features, bug fixes, refactors, behavior changes — on that task's first commit
+- **Skip:** docs/comments/formatting only; this task already bumped; user forbids
+
+## Procedure (first commit only)
+
+1. Collect versions: current `package.json` + every path from `git worktree list`.
+2. Set `version` to `MAJOR.MINOR.(maxPATCH + 1)` — last segment only.
+3. Include that change in the **first** commit. Later commits in the same task: do not bump again.
+4. If another worktree may race: re-read max immediately before committing.
+
+## Do not rationalize away
+
+| Excuse | Reality |
+|--------|---------|
+| User didn't ask for a release | Bump tracks **tasks**, not marketplace releases |
+| Keep the commit feature-only / bump later | Version belongs in the first commit |
+| Bumping causes conflicts | Skipping duplicates versions — scan max, then max+1 |
+| Only if we publish | Publish timing ≠ task identity |
+
+```text
+❌ First code commit still at 1.0.1 while sibling worktree is 1.0.2
+✅ Re-read max (1.0.2) → first commit sets 1.0.3 with the feature
+```
