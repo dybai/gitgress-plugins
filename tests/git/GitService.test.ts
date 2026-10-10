@@ -72,7 +72,8 @@ describe('GitService', () => {
         'aaa refs/heads/main main',
         'bbb refs/heads/feature/x feature/x',
         'ccc refs/remotes/origin/main origin/main',
-        'ddd refs/remotes/origin/HEAD origin/HEAD',
+        // git shortens refs/remotes/origin/HEAD to "origin", not "origin/HEAD"
+        'ddd refs/remotes/origin/HEAD origin',
         '',
       ].join('\n'),
       stderr: '',

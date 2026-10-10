@@ -296,8 +296,10 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
     if (primary) {
       const folded = foldRemoteLabel(primary, refs);
       const compound = document.createElement('span');
-      compound.className =
-        primary.kind === 'remote' ? 'ref-pill ref-pill-remote tip-compound' : 'ref-pill tip-compound';
+      compound.className = 'ref-pill tip-compound';
+      if (primary.kind === 'remote') {
+        compound.classList.add('ref-pill-remote');
+      }
 
       const names = document.createElement('span');
       names.className = 'tip-names';

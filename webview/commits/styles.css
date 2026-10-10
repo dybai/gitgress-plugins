@@ -222,10 +222,9 @@ button {
   white-space: nowrap;
 }
 
+/* Secondary remote pills stay filled (readable); only the folded remote
+   label inside a compound tip is muted via .tip-remote. */
 .ref-pill-remote {
-  color: var(--vscode-descriptionForeground);
-  background: transparent;
-  border-color: var(--vscode-panel-border);
   font-weight: 500;
 }
 

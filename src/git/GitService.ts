@@ -109,7 +109,8 @@ export class GitService {
       if (commitId === '' || name === '') {
         continue;
       }
-      if (refname.startsWith('refs/remotes/') && name.endsWith('/HEAD')) {
+      // Short name may be "origin" (not "origin/HEAD"); key off full refname.
+      if (refname.startsWith('refs/remotes/') && refname.endsWith('/HEAD')) {
         continue;
       }
       let kind: 'local' | 'remote';
