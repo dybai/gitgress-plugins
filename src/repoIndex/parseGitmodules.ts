@@ -6,6 +6,19 @@ function normalizeSubmodulePath(raw: string): string {
   return p;
 }
 
+function isRelativeSubmodulePath(normalized: string): boolean {
+  if (!normalized) {
+    return false;
+  }
+  if (normalized.startsWith('/')) {
+    return false;
+  }
+  if (/^[a-zA-Z]:/.test(normalized)) {
+    return false;
+  }
+  return true;
+}
+
 export function parseGitmodules(content: string): string[] {
   if (!content.trim()) {
     return [];
@@ -20,6 +33,9 @@ export function parseGitmodules(content: string): string[] {
       continue;
     }
     const normalized = normalizeSubmodulePath(match[1]);
+    if (!isRelativeSubmodulePath(normalized)) {
+      continue;
+    }
     if (seen.has(normalized)) {
       continue;
     }
