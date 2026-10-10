@@ -1,9 +1,9 @@
 {
   "name": "gitgress",
-  "displayName": "Gitgress",
+  "displayName": "GitGress",
   "description": "Multi-lane commit graph, paginated history, changed files, and parent-commit diffs",
   "version": "0.1.0",
-  "publisher": "pg-dybai",
+  "publisher": "dybai",
   "license": "MIT",
   "engines": { "vscode": "^1.85.0" },
   "categories": ["SCM Providers", "Other"],
@@ -14,7 +14,7 @@
       "activitybar": [
         {
           "id": "gitgress",
-          "title": "Gitgress",
+          "title": "GitGress",
           "icon": "media/gitgress-icon.svg"
         }
       ]
@@ -26,9 +26,9 @@
       ]
     },
     "commands": [
-      { "command": "gitgress.switchBranch", "title": "Gitgress: Switch Branch", "icon": "$(git-branch)" },
-      { "command": "gitgress.refresh", "title": "Gitgress: Refresh", "icon": "$(refresh)" },
-      { "command": "gitgress.openFileDiff", "title": "Gitgress: Open File Diff" }
+      { "command": "gitgress.switchBranch", "title": "GitGress: Switch Branch", "icon": "$(git-branch)" },
+      { "command": "gitgress.refresh", "title": "GitGress: Refresh", "icon": "$(refresh)" },
+      { "command": "gitgress.openFileDiff", "title": "GitGress: Open File Diff" }
     ],
     "menus": {
       "commandPalette": [
