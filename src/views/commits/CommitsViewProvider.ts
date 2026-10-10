@@ -102,10 +102,12 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
   private async handleMessage(message: WebviewToHost): Promise<void> {
     switch (message.type) {
       case 'ready':
-      case 'retry':
-        await this.load(this.selection.getSnapshot());
+      case 'retry': {
+        const loadPromise = this.load(this.selection.getSnapshot());
         this.postScanStatus(this.getScanStatus());
+        await loadPromise;
         return;
+      }
       case 'commitSelected':
         if (this.lastLoadedCommitIds.has(message.commitId)) {
           this.selection.selectCommit(message.commitId);
