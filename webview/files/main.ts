@@ -12,10 +12,7 @@ import {
   CODICON_FOLDER,
   CODICON_FOLDER_OPEN,
 } from '../../src/views/files/codiconFileIcons';
-import {
-  createFileIconElement,
-  ensureFileIconFontFaces,
-} from '../../src/views/files/fileIconDom';
+import { createFileIconElement, ensureFileIconFontFaces } from './fileIconDom';
 import { buildFileList } from '../../src/views/files/buildFileList';
 import { buildFileTree, type FileTreeNode } from '../../src/views/files/buildFileTree';
 import {

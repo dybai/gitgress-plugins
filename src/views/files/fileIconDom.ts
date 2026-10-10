@@ -1,7 +1,5 @@
 import type { FileIconRef } from '../../protocol/filesMessages';
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
 export const CODICON_PATHS = {
   file: 'M5 1C3.89543 1 3 1.89543 3 3V13C3 14.1046 3.89543 15 5 15H11C12.1046 15 13 14.1046 13 13V5.41421C13 5.01639 12.842 4.63486 12.5607 4.35355L9.64645 1.43934C9.36514 1.15804 8.98361 1 8.58579 1H5ZM4 3C4 2.44772 4.44772 2 5 2H8V4.5C8 5.32843 8.67157 6 9.5 6H12V13C12 13.5523 11.5523 14 11 14H5C4.44772 14 4 13.5523 4 13V3ZM11.7929 5H9.5C9.22386 5 9 4.77614 9 4.5V2.20711L11.7929 5Z',
   folder:
@@ -47,94 +45,24 @@ export function describeFileIcon(icon: FileIconRef): FileIconDescriptor {
   }
 }
 
-function codiconPathData(id: string): string {
+export function codiconPathData(id: string): string {
   if (id === 'file' || id === 'folder' || id === 'folder-opened') {
     return CODICON_PATHS[id];
   }
   return CODICON_PATHS.file;
 }
 
-function createCodiconSvg(document: Document, codiconId: string): SVGSVGElement {
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 16 16');
-  svg.setAttribute('width', '16');
-  svg.setAttribute('height', '16');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.classList.add('file-icon');
-  const path = document.createElementNS(SVG_NS, 'path');
-  path.setAttribute('d', codiconPathData(codiconId));
-  path.setAttribute('fill', 'currentColor');
-  svg.appendChild(path);
-  return svg;
-}
-
-export type CreateFileIconOptions = {
-  /** When a theme image fails to load, replace with this icon (typically codicon). */
-  imgErrorFallback?: FileIconRef;
+export type SlotAttributeSource = {
+  getAttribute(name: string): string | null;
 };
 
-export function copySlotAttribute(from: Element, to: Element): void {
+export type SlotAttributeTarget = SlotAttributeSource & {
+  setAttribute(name: string, value: string): void;
+};
+
+export function copySlotAttribute(from: SlotAttributeSource, to: SlotAttributeTarget): void {
   const slot = from.getAttribute('slot');
   if (slot !== null) {
     to.setAttribute('slot', slot);
   }
-}
-
-export function createFileIconElement(
-  icon: FileIconRef,
-  document: Document,
-  options?: CreateFileIconOptions,
-): HTMLElement {
-  const described = describeFileIcon(icon);
-
-  if (described.mode === 'img') {
-    const img = document.createElement('img');
-    img.className = 'file-icon file-icon-img';
-    img.src = described.src;
-    img.alt = '';
-    img.setAttribute('aria-hidden', 'true');
-    const fallback = options?.imgErrorFallback;
-    if (fallback !== undefined) {
-      img.addEventListener(
-        'error',
-        () => {
-          const replacement = createFileIconElement(fallback, document);
-          copySlotAttribute(img, replacement);
-          img.replaceWith(replacement);
-        },
-        { once: true },
-      );
-    }
-    return img;
-  }
-
-  if (described.mode === 'font') {
-    const span = document.createElement('span');
-    span.className = 'file-icon file-icon-font';
-    span.setAttribute('aria-hidden', 'true');
-    span.style.fontFamily = `"${described.fontId}"`;
-    if (described.color !== undefined) {
-      span.style.color = described.color;
-    }
-    span.textContent = described.character;
-    return span;
-  }
-
-  return createCodiconSvg(document, described.codiconId);
-}
-
-export const FILE_ICON_FONTS_STYLE_ID = 'gitgress-file-icon-fonts';
-
-export function ensureFileIconFontFaces(
-  document: Document,
-  fonts: Array<{ id: string; uri: string }>,
-): void {
-  const css = fileIconFontFaceCss(fonts);
-  let style = document.getElementById(FILE_ICON_FONTS_STYLE_ID) as HTMLStyleElement | null;
-  if (style === null) {
-    style = document.createElement('style');
-    style.id = FILE_ICON_FONTS_STYLE_ID;
-    document.head.appendChild(style);
-  }
-  style.textContent = css;
 }

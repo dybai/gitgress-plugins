@@ -105,13 +105,13 @@ describe('copySlotAttribute', () => {
     const toAttrs = new Map<string, string>();
     const from = {
       getAttribute: (name: string) => fromAttrs.get(name) ?? null,
-    } as Element;
+    };
     const to = {
       getAttribute: (name: string) => toAttrs.get(name) ?? null,
       setAttribute: (name: string, value: string) => {
         toAttrs.set(name, value);
       },
-    } as Element;
+    };
 
     copySlotAttribute(from, to);
     expect(toAttrs.get('slot')).toBe('icon-branch');
@@ -119,13 +119,13 @@ describe('copySlotAttribute', () => {
 
   it('does nothing when source has no slot', () => {
     const toAttrs = new Map<string, string>();
-    const from = { getAttribute: () => null } as Element;
+    const from = { getAttribute: () => null };
     const to = {
       getAttribute: (name: string) => toAttrs.get(name) ?? null,
       setAttribute: (name: string, value: string) => {
         toAttrs.set(name, value);
       },
-    } as Element;
+    };
 
     copySlotAttribute(from, to);
     expect(toAttrs.size).toBe(0);
