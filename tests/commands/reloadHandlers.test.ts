@@ -4,52 +4,80 @@ import {
   reloadRepositoryState,
 } from '../../src/commands/reloadHandlers';
 
-const unchangedSelection = {
-  getSnapshot: vi.fn(() => ({
-    repoRoot: '/repo',
-    branch: 'main',
-    selectedCommitId: 'abc',
-  })),
-  setRepo: vi.fn(),
-  setBranch: vi.fn(),
-};
-
-const gitService = {
-  resolveRepo: vi.fn(async () => '/repo'),
-  currentBranch: vi.fn(async () => 'main'),
-  listBranches: vi.fn(async () => ['main']),
-};
+function makeDeps(repoRoot: string | null = '/repo') {
+  return {
+    gitService: {
+      currentBranch: vi.fn(async () => 'main'),
+      listBranches: vi.fn(async () => ['main']),
+    },
+    selection: {
+      getSnapshot: vi.fn(() => ({
+        repoRoot,
+        branch: 'main',
+        selectedCommitId: 'abc',
+      })),
+      setRepo: vi.fn(),
+      setBranch: vi.fn(),
+    },
+    filesProvider: { refresh: vi.fn() },
+    commitsProvider: { refresh: vi.fn() },
+    repoIndex: { startScan: vi.fn() },
+    coordinator: { resolveInitial: vi.fn(), onIndexUpdated: vi.fn() },
+  };
+}
 
 describe('reloadHandlers', () => {
-  it('reloadRepositoryState refreshes files but not commits', async () => {
-    const filesProvider = { refresh: vi.fn() };
-    const commitsProvider = { refresh: vi.fn() };
+  it('reloadRepositoryState restarts scan, re-resolves, and refreshes files but not commits', async () => {
+    const deps = makeDeps();
 
-    await reloadRepositoryState({
-      gitService,
-      selection: unchangedSelection,
-      workspaceFolders: [{ uri: { fsPath: '/repo' } }],
-      filesProvider,
-      commitsProvider,
-    });
+    await reloadRepositoryState(deps);
 
-    expect(filesProvider.refresh).toHaveBeenCalledOnce();
-    expect(commitsProvider.refresh).not.toHaveBeenCalled();
+    expect(deps.repoIndex.startScan).toHaveBeenCalledOnce();
+    expect(deps.coordinator.resolveInitial).toHaveBeenCalledOnce();
+    expect(deps.filesProvider.refresh).toHaveBeenCalledOnce();
+    expect(deps.commitsProvider.refresh).not.toHaveBeenCalled();
+    expect(deps.selection.setRepo).not.toHaveBeenCalled();
   });
 
-  it('explicitRefreshGitgress reloads commits when repo and branch are unchanged', async () => {
-    const filesProvider = { refresh: vi.fn() };
-    const commitsProvider = { refresh: vi.fn() };
-
-    await explicitRefreshGitgress({
-      gitService,
-      selection: unchangedSelection,
-      workspaceFolders: [{ uri: { fsPath: '/repo' } }],
-      filesProvider,
-      commitsProvider,
+  it('reloadRepositoryState ensures the branch for the resolved repo after resolveInitial', async () => {
+    const deps = makeDeps();
+    const order: string[] = [];
+    deps.coordinator.resolveInitial.mockImplementation(() => {
+      order.push('resolveInitial');
     });
+    deps.gitService.currentBranch.mockImplementation(async () => {
+      order.push('currentBranch');
+      return 'main';
+    });
+    deps.selection.getSnapshot.mockImplementation(() => ({
+      repoRoot: '/repo',
+      branch: null,
+      selectedCommitId: null,
+    }));
 
-    expect(filesProvider.refresh).toHaveBeenCalledOnce();
-    expect(commitsProvider.refresh).toHaveBeenCalledOnce();
+    await reloadRepositoryState(deps);
+
+    expect(order).toEqual(['resolveInitial', 'currentBranch']);
+    expect(deps.selection.setBranch).toHaveBeenCalledWith('main');
+  });
+
+  it('reloadRepositoryState does nothing for git when no repository is selected', async () => {
+    const deps = makeDeps(null);
+
+    await reloadRepositoryState(deps);
+
+    expect(deps.gitService.currentBranch).not.toHaveBeenCalled();
+    expect(deps.filesProvider.refresh).toHaveBeenCalledOnce();
+  });
+
+  it('explicitRefreshGitgress starts a scan and reloads commits when repo and branch are unchanged', async () => {
+    const deps = makeDeps();
+
+    await explicitRefreshGitgress(deps);
+
+    expect(deps.repoIndex.startScan).toHaveBeenCalledOnce();
+    expect(deps.coordinator.resolveInitial).not.toHaveBeenCalled();
+    expect(deps.filesProvider.refresh).toHaveBeenCalledOnce();
+    expect(deps.commitsProvider.refresh).toHaveBeenCalledOnce();
   });
 });

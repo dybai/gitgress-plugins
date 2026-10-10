@@ -1,9 +1,6 @@
-import type * as vscode from 'vscode';
 import { GitCommandFailedError, GitNotFoundError } from '../git/errors';
 import type { GitService } from '../git/GitService';
 import type { SelectionState } from '../state/SelectionState';
-
-type WorkspaceFolder = Pick<vscode.WorkspaceFolder, 'uri'>;
 
 export function gitErrorMessage(error: unknown): string {
   if (error instanceof GitNotFoundError) {
@@ -19,15 +16,15 @@ export function gitErrorMessage(error: unknown): string {
   return 'Gitgress: An unexpected error occurred';
 }
 
+/**
+ * Ensure the display branch is valid for the currently selected repository.
+ * Never picks a repository: selection of the repo is owned by SelectionCoordinator.
+ */
 export async function refreshRepository(
-  gitService: Pick<GitService, 'resolveRepo' | 'currentBranch' | 'listBranches'>,
-  selection: Pick<SelectionState, 'getSnapshot' | 'setRepo' | 'setBranch'>,
-  workspaceFolders: readonly WorkspaceFolder[],
+  gitService: Pick<GitService, 'currentBranch' | 'listBranches'>,
+  selection: Pick<SelectionState, 'getSnapshot' | 'setBranch'>,
 ): Promise<void> {
-  const repoRoot = await gitService.resolveRepo(
-    workspaceFolders.map((folder) => folder.uri.fsPath),
-  );
-  selection.setRepo(repoRoot);
+  const { repoRoot } = selection.getSnapshot();
   if (repoRoot === null) {
     return;
   }

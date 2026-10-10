@@ -1,26 +1,36 @@
-import type * as vscode from 'vscode';
 import { refreshRepository } from './refresh';
 import type { GitService } from '../git/GitService';
 import type { SelectionState } from '../state/SelectionState';
 
-type WorkspaceFolder = Pick<vscode.WorkspaceFolder, 'uri'>;
-
 export type ReloadHandlersDeps = {
-  gitService: Pick<GitService, 'resolveRepo' | 'currentBranch' | 'listBranches'>;
-  selection: Pick<SelectionState, 'getSnapshot' | 'setRepo' | 'setBranch'>;
-  workspaceFolders: readonly WorkspaceFolder[];
+  gitService: Pick<GitService, 'currentBranch' | 'listBranches'>;
+  selection: Pick<SelectionState, 'getSnapshot' | 'setBranch'>;
   filesProvider: { refresh(): void };
   commitsProvider: { refresh(): void };
+  repoIndex: { startScan(): void };
+  coordinator: { resolveInitial(): void; onIndexUpdated(): void };
 };
 
-/** Refresh repo/branch state and the files tree; does not force commits webview reload. */
+/**
+ * Workspace layout changed: restart the repo index scan, re-resolve the
+ * selection through the coordinator, ensure the branch, and refresh files.
+ * Does not force a commits webview reload.
+ */
 export async function reloadRepositoryState(deps: ReloadHandlersDeps): Promise<void> {
-  await refreshRepository(deps.gitService, deps.selection, deps.workspaceFolders);
+  deps.repoIndex.startScan();
+  deps.coordinator.resolveInitial();
+  await refreshRepository(deps.gitService, deps.selection);
   deps.filesProvider.refresh();
 }
 
-/** Manual Gitgress refresh: sync repository state then reload commits even when branch unchanged. */
+/**
+ * Manual Gitgress refresh: rescan for repositories, ensure the branch for the
+ * current (sticky) selection, then reload files and commits even when the
+ * branch is unchanged.
+ */
 export async function explicitRefreshGitgress(deps: ReloadHandlersDeps): Promise<void> {
-  await reloadRepositoryState(deps);
+  deps.repoIndex.startScan();
+  await refreshRepository(deps.gitService, deps.selection);
+  deps.filesProvider.refresh();
   deps.commitsProvider.refresh();
 }

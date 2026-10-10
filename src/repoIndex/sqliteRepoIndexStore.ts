@@ -40,9 +40,20 @@ const SQLITE_HEADER = 'SQLite format 3\0';
 // process even if many stores are created.
 let sqlJsPromise: Promise<SqlJsStatic> | null = null;
 
-function getSqlJs(): Promise<SqlJsStatic> {
+export type SqliteRepoIndexStoreOptions = {
+  /** Resolve sql.js assets (e.g. sql-wasm.wasm); needed when running bundled/packaged. */
+  locateFile?: (file: string) => string;
+};
+
+function getSqlJs(options?: SqliteRepoIndexStoreOptions): Promise<SqlJsStatic> {
   if (!sqlJsPromise) {
-    sqlJsPromise = initSqlJs();
+    sqlJsPromise = options?.locateFile
+      ? initSqlJs({ locateFile: options.locateFile })
+      : initSqlJs();
+    // Do not cache a failed initialization.
+    sqlJsPromise.catch(() => {
+      sqlJsPromise = null;
+    });
   }
   return sqlJsPromise;
 }
@@ -130,8 +141,9 @@ function persist(db: Database, dbFilePath: string): void {
  */
 export async function createSqliteRepoIndexStore(
   dbFilePath: string,
+  options?: SqliteRepoIndexStoreOptions,
 ): Promise<RepoIndexStore> {
-  const SQL = await getSqlJs();
+  const SQL = await getSqlJs(options);
   const db = await loadDatabase(dbFilePath, SQL);
 
   const flush = (): void => persist(db, dbFilePath);
