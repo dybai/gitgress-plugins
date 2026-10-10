@@ -364,6 +364,118 @@ describe('SelectionCoordinator', () => {
       expect(setSpy).toHaveBeenCalledWith(null);
       expect(coordinator.isLocked()).toBe(false);
     });
+
+    it('clears preference when the only selected repository vanishes and does not resurrect it', () => {
+      const pref = makePreference('/ws/apps/api');
+      const setSpy = vi.spyOn(pref, 'set');
+      const { selection, coordinator, rootsGetter } = makeCoordinator({
+        roots: ['/ws/apps/api'],
+        preference: pref,
+      });
+      coordinator.resolveInitial();
+      expect(coordinator.isLocked()).toBe(true);
+      expect(pref.get()).toBe('/ws/apps/api');
+
+      // The selected (and preferred) repo vanishes from the index.
+      rootsGetter.mockReturnValue([]);
+      coordinator.onSelectedRepoInvalid();
+
+      expect(setSpy).toHaveBeenCalledWith(null);
+      expect(pref.get()).toBeNull();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+
+      // The repo reappears; the cleared preference must not be resurrected.
+      rootsGetter.mockReturnValue(['/ws/apps/api']);
+      coordinator.onIndexUpdated();
+
+      expect(pref.get()).toBeNull();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+    });
+  });
+
+  describe('onScanIdle', () => {
+    it('clears stale preference when a completed non-matching non-empty index arrives', () => {
+      const pref = makePreference('/gone/repo');
+      const setSpy = vi.spyOn(pref, 'set');
+      const { selection, coordinator, rootsGetter } = makeCoordinator({
+        roots: [],
+        preference: pref,
+        activeFile: null,
+      });
+      // Cold start: empty index preserves the preference.
+      coordinator.resolveInitial();
+      expect(pref.get()).toBe('/gone/repo');
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+
+      // Scan completes with a non-empty index that does not contain the pref.
+      rootsGetter.mockReturnValue(['/ws/apps/api']);
+      coordinator.onScanIdle();
+
+      expect(setSpy).toHaveBeenCalledWith(null);
+      expect(pref.get()).toBeNull();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+    });
+
+    it('clears stale preference when a completed empty index arrives', () => {
+      const pref = makePreference('/gone/repo');
+      const setSpy = vi.spyOn(pref, 'set');
+      const { selection, coordinator } = makeCoordinator({
+        roots: [],
+        preference: pref,
+        activeFile: null,
+      });
+      // Cold start: empty index preserves the preference.
+      coordinator.resolveInitial();
+      expect(pref.get()).toBe('/gone/repo');
+
+      // Scan completes with an empty authoritative index.
+      coordinator.onScanIdle();
+
+      expect(setSpy).toHaveBeenCalledWith(null);
+      expect(pref.get()).toBeNull();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+    });
+
+    it('keeps a valid locked selection and a matching preference on scan idle', () => {
+      const pref = makePreference('/ws/apps/api');
+      const setSpy = vi.spyOn(pref, 'set');
+      const { selection, coordinator } = makeCoordinator({
+        roots: ['/ws/apps/api'],
+        preference: pref,
+      });
+      coordinator.resolveInitial();
+      expect(coordinator.isLocked()).toBe(true);
+
+      coordinator.onScanIdle();
+
+      expect(setSpy).not.toHaveBeenCalledWith(null);
+      expect(pref.get()).toBe('/ws/apps/api');
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
+      expect(coordinator.isLocked()).toBe(true);
+    });
+
+    it('unlocks and re-resolves when the locked selection vanished from the authoritative index', () => {
+      const pref = makePreference('/ws/apps/api');
+      const { selection, coordinator, rootsGetter } = makeCoordinator({
+        roots: ['/ws/apps/api'],
+        preference: pref,
+      });
+      coordinator.resolveInitial();
+      expect(coordinator.isLocked()).toBe(true);
+
+      // The locked repo disappears from a completed (non-empty) scan.
+      rootsGetter.mockReturnValue(['/ws/other']);
+      coordinator.onScanIdle();
+
+      expect(pref.get()).toBeNull();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+    });
   });
 
   describe('isLocked', () => {
