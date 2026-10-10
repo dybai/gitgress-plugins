@@ -31,10 +31,14 @@ diffs against that commit's parent.
 
 - VS Code-compatible editor with `engines.vscode` `^1.85.0` (VS Code or Cursor)
 - Git **2.24** or newer on your `PATH`
-- An open workspace folder that is a Git repository
+- An open workspace that contains at least one Git repository (the workspace
+  root does not need to be a repo; nested `.git` directories and paths listed
+  in `.gitmodules` are discovered automatically)
 
 ## Features
 
+- Multi-repository discovery with cached index, background rescan, and manual
+  **Select Repository** when more than one repo is available
 - Multi-lane SVG commit graph with merge topology
 - Infinite-scroll history pagination
 - Commit hover overlay (no avatar) that stays aligned while scrolling
@@ -44,13 +48,21 @@ diffs against that commit's parent.
 
 ## Usage
 
-1. Open a Git repository folder.
+1. Open a folder or multi-root workspace that contains one or more Git
+   repositories.
 2. Select **GitGress** in the Activity Bar.
-3. Use the Commits view to browse history; hover a row for details; click to
-   select.
-4. Inspect changed paths in Files; double-click a path (or use Open Diff) for
+3. When several repos are indexed, use **Select Repository** on the Commits view
+   title (or run **GitGress: Select Repository** from the Command Palette) to
+   choose which repo to browse. Your manual choice is remembered for the
+   workspace; switching editors may follow the active file’s repo unless you
+   picked a repo yourself (sticky selection).
+4. Use the Commits view to browse history; hover a row for details; click to
+   select. While repositories are being rescanned, a thin indeterminate bar may
+   appear at the top of Commits (no status text).
+5. Inspect changed paths in Files; double-click a path (or use Open Diff) for
    the parent diff.
-5. Use the view title actions to switch branch or refresh (both reset pagination).
+6. Use the view title actions to switch branch or refresh. Refresh reloads the
+   current repo and branch but does not change which repository is selected.
 
 ### Files view notes
 

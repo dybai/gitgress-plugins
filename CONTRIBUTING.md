@@ -8,8 +8,9 @@ editor supporting extension engine `^1.85.0` (including VS Code and Cursor).
 1. Clone the repository and run `npm ci`.
 2. Open the repository in VS Code or Cursor.
 3. Press `F5` and choose **Extension Development Host** if prompted.
-4. In the new window, open a Git repository and select **GitGress** in the
-   Activity Bar.
+4. In the new window, open a workspace with at least one Git repository (try a
+   monorepo with nested repos or a `.gitmodules` submodule such as
+   `.superpowers`) and select **GitGress** in the Activity Bar.
 
 ## Architecture
 
@@ -72,6 +73,23 @@ Before publishing, ensure the release is ready: version bump, `CHANGELOG.md`, ic
 
 Run these checks in an Extension Development Host (e.g. open a repo with merge
 history such as `fintech-service`):
+
+### Multi-repository selection
+
+- [ ] Opening a multi-root or nested-repo workspace lists every discovered repo
+      in **GitGress: Select Repository** / Commits title **Select Repository**
+      (including submodule paths from `.gitmodules` when present, e.g.
+      `.superpowers`).
+- [ ] Cached repos appear immediately; a background rescan shows the thin
+      indeterminate bar at the top of Commits (no scan text) and hides it when
+      idle.
+- [ ] Manual repo choice persists across Extension Development Host restarts
+      (`gitgress.manualRepoRoot` in workspace state).
+- [ ] Sticky selection: after a manual pick, switching editors does not change
+      the active repo until you select again; without a manual pick, the active
+      editor’s repo is preferred.
+- [ ] **Refresh** reloads history for the current repo but does not auto-switch
+      to another indexed repository.
 
 ### Commits and repository
 
