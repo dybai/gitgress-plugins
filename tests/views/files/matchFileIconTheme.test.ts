@@ -42,6 +42,57 @@ describe('matchFileIcon', () => {
       character: '\uE023',
     });
   });
+
+  it('light mode falls back default file to top-level when light.file missing', () => {
+    const lightTheme: FileIconThemeDocument = {
+      iconDefinitions: {
+        defaultFile: { fontCharacter: '\uE001' },
+        lightOnly: { fontCharacter: '\uE002' },
+      },
+      file: 'defaultFile',
+      light: {},
+    };
+    expect(
+      matchFileIcon(lightTheme, 'unknown.xyz', { light: true }),
+    ).toMatchObject({ kind: 'font', character: '\uE001' });
+  });
+
+  it('light mode uses light.fileNames and fileExtensions with top-level fallback', () => {
+    const lightTheme: FileIconThemeDocument = {
+      iconDefinitions: {
+        byNameDark: { fontCharacter: '\uE010' },
+        byNameLight: { fontCharacter: '\uE011' },
+        extDark: { fontCharacter: '\uE020' },
+        extLight: { fontCharacter: '\uE021' },
+        onlyDarkName: { fontCharacter: '\uE030' },
+        onlyDarkExt: { fontCharacter: '\uE031' },
+      },
+      fileNames: {
+        'package.json': 'byNameDark',
+        'only-in-dark': 'onlyDarkName',
+      },
+      fileExtensions: {
+        ts: 'extDark',
+        darkonly: 'onlyDarkExt',
+      },
+      light: {
+        fileNames: { 'package.json': 'byNameLight' },
+        fileExtensions: { ts: 'extLight' },
+      },
+    };
+    expect(
+      matchFileIcon(lightTheme, 'package.json', { light: true }),
+    ).toMatchObject({ character: '\uE011' });
+    expect(matchFileIcon(lightTheme, 'app.ts', { light: true })).toMatchObject(
+      { character: '\uE021' },
+    );
+    expect(
+      matchFileIcon(lightTheme, 'only-in-dark', { light: true }),
+    ).toMatchObject({ character: '\uE030' });
+    expect(
+      matchFileIcon(lightTheme, 'x.darkonly', { light: true }),
+    ).toMatchObject({ character: '\uE031' });
+  });
 });
 
 describe('matchFolderIcon', () => {

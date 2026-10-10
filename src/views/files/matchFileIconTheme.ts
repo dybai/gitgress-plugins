@@ -15,31 +15,42 @@ function resolveDefinitionIdForFile(
   light?: boolean,
 ): string | undefined {
   const name = basename(relativePath.replace(/\\/g, '/'));
-  const fileNames = theme.fileNames;
-  const fileExtensions = theme.fileExtensions;
+  const lightFileNames = light ? theme.light?.fileNames : undefined;
+  const topFileNames = theme.fileNames;
+  const lightFileExtensions = light ? theme.light?.fileExtensions : undefined;
+  const topFileExtensions = theme.fileExtensions;
 
-  if (fileNames) {
+  if (lightFileNames || topFileNames) {
     const byName =
-      fileNames[name] ?? fileNames[name.toLowerCase()];
+      lightFileNames?.[name] ??
+      lightFileNames?.[name.toLowerCase()] ??
+      topFileNames?.[name] ??
+      topFileNames?.[name.toLowerCase()];
     if (byName) {
       return byName;
     }
   }
 
-  if (fileExtensions) {
+  if (lightFileExtensions || topFileExtensions) {
+    const extensionKeys = new Set([
+      ...Object.keys(lightFileExtensions ?? {}),
+      ...Object.keys(topFileExtensions ?? {}),
+    ]);
     let bestKey: string | undefined;
-    for (const key of Object.keys(fileExtensions)) {
+    for (const key of extensionKeys) {
       const matches = name === key || name.endsWith(`.${key}`);
       if (matches && (!bestKey || key.length > bestKey.length)) {
         bestKey = key;
       }
     }
     if (bestKey) {
-      return fileExtensions[bestKey];
+      return (
+        lightFileExtensions?.[bestKey] ?? topFileExtensions?.[bestKey]
+      );
     }
   }
 
-  return light ? theme.light?.file : theme.file;
+  return light ? (theme.light?.file ?? theme.file) : theme.file;
 }
 
 function definitionToMatched(
