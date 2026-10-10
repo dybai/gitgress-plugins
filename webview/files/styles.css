@@ -82,6 +82,28 @@ body {
   color: var(--vscode-errorForeground);
 }
 
+.file-icon,
+.file-icon-font,
+.file-icon-img {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+}
+
+.file-icon-font {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 150%;
+  line-height: 1;
+  speak: never;
+}
+
+.file-icon-img {
+  object-fit: contain;
+}
+
 /* Shared row pieces */
 .name {
   white-space: nowrap;

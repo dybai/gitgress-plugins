@@ -3,9 +3,19 @@ import '@vscode-elements/elements/dist/vscode-tree/vscode-tree.js';
 import '@vscode-elements/elements/dist/vscode-tree-item/vscode-tree-item.js';
 import type {
   ChangedFileDto,
+  FilesIconsPayload,
   FilesWebviewToHost,
   HostToFilesWebview,
 } from '../../src/protocol/filesMessages';
+import {
+  CODICON_FILE,
+  CODICON_FOLDER,
+  CODICON_FOLDER_OPEN,
+} from '../../src/views/files/codiconFileIcons';
+import {
+  createFileIconElement,
+  ensureFileIconFontFaces,
+} from '../../src/views/files/fileIconDom';
 import { buildFileList } from '../../src/views/files/buildFileList';
 import { buildFileTree, type FileTreeNode } from '../../src/views/files/buildFileTree';
 import {
@@ -45,6 +55,7 @@ type LoadedState = {
   files: ChangedFileDto[];
   layoutPreference: FilesLayoutPreference;
   effectiveLayout: 'list' | 'tree';
+  icons: FilesIconsPayload;
 };
 
 let loaded: LoadedState | null = null;
@@ -164,6 +175,11 @@ function tooltipFor(state: LoadedState, path: string, status: string): string {
   return fileTooltip(state.repoRoot, path, status);
 }
 
+function fileIconForPath(state: LoadedState, path: string): ReturnType<typeof createFileIconElement> {
+  const ref = state.icons.files[path] ?? CODICON_FILE;
+  return createFileIconElement(ref, document, { imgErrorFallback: CODICON_FILE });
+}
+
 function renderList(state: LoadedState): HTMLElement {
   const list = document.createElement('div');
   list.className = 'file-list';
@@ -188,7 +204,12 @@ function renderList(state: LoadedState): HTMLElement {
       label.append(span('directory', row.directory));
     }
 
-    el.append(label, createStats(row), createOpenButton(row.path, row.status));
+    el.append(
+      fileIconForPath(state, row.path),
+      label,
+      createStats(row),
+      createOpenButton(row.path, row.status),
+    );
     list.appendChild(el);
   }
   return list;
@@ -207,6 +228,19 @@ function renderTreeNode(state: LoadedState, node: FileTreeNode): HTMLElement {
   if (node.kind === 'dir') {
     item.setAttribute('branch', '');
     item.setAttribute('open', '');
+
+    const branchIcon = createFileIconElement(state.icons.folder, document, {
+      imgErrorFallback: CODICON_FOLDER,
+    });
+    branchIcon.slot = 'icon-branch';
+    item.appendChild(branchIcon);
+
+    const branchOpenIcon = createFileIconElement(state.icons.folderOpen, document, {
+      imgErrorFallback: CODICON_FOLDER_OPEN,
+    });
+    branchOpenIcon.slot = 'icon-branch-opened';
+    item.appendChild(branchOpenIcon);
+
     item.append(span('name dir-name', node.name));
     for (const child of node.children ?? []) {
       item.appendChild(renderTreeNode(state, child));
@@ -217,6 +251,11 @@ function renderTreeNode(state: LoadedState, node: FileTreeNode): HTMLElement {
   const status = node.status ?? fileStatusFor(state, node.path);
   item.dataset.status = status;
   item.title = tooltipFor(state, node.path, status);
+
+  const leafIcon = fileIconForPath(state, node.path);
+  leafIcon.slot = 'icon-leaf';
+  item.appendChild(leafIcon);
+
   item.append(span('name', node.name));
 
   const decoration = createStats({
@@ -273,6 +312,7 @@ function renderLoaded(state: LoadedState): void {
   }
 
   loaded = state;
+  ensureFileIconFontFaces(document, state.icons.fonts);
   messageEl.hidden = true;
   messageEl.textContent = '';
   setBadge(state.files.length);
@@ -351,6 +391,7 @@ window.addEventListener('message', (event: MessageEvent<HostToFilesWebview>) => 
         files: message.files,
         layoutPreference: message.layoutPreference,
         effectiveLayout: message.effectiveLayout,
+        icons: message.icons,
       });
       return;
     case 'filesEmpty':
