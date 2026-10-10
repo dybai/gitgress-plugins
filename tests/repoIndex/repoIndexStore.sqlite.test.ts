@@ -129,6 +129,27 @@ describe('createSqliteRepoIndexStore', () => {
     store2.close();
   });
 
+  it('replaceAll dedupes normalized roots with last-value-wins like the memory store', async () => {
+    const dbFilePath = path.join(tmpDir, 'repos.sqlite');
+    const store = await createSqliteRepoIndexStore(dbFilePath);
+    store.upsert(entry('/keep-me-until-replace'));
+    store.upsert(entry('/also-old'));
+    store.replaceAll([
+      entry('D:\\proj\\', { lastSeenMs: 1 }),
+      entry('d:/proj', { source: 'submodule', lastSeenMs: 999 }),
+    ]);
+    expect(store.getEntries()).toEqual([
+      { root: 'd:/proj', source: 'submodule', lastSeenMs: 999 },
+    ]);
+    store.close();
+
+    const store2 = await createSqliteRepoIndexStore(dbFilePath);
+    expect(store2.getEntries()).toEqual([
+      { root: 'd:/proj', source: 'submodule', lastSeenMs: 999 },
+    ]);
+    store2.close();
+  });
+
   it('pruneMissing removes entries whose root fails exists check and persists', async () => {
     const dbFilePath = path.join(tmpDir, 'repos.sqlite');
     const store = await createSqliteRepoIndexStore(dbFilePath);
@@ -158,6 +179,22 @@ describe('createSqliteRepoIndexStore', () => {
     expect(store.upsert(entry('/r3'))).toBe('added');
     expect(store.getEntries()).toHaveLength(3);
     store.close();
+  });
+
+  it('throws RepoIndexDbError when opening a zero-byte db file', async () => {
+    const dbFilePath = path.join(tmpDir, 'repos.sqlite');
+    fs.writeFileSync(dbFilePath, Buffer.alloc(0));
+    await expect(createSqliteRepoIndexStore(dbFilePath)).rejects.toBeInstanceOf(
+      RepoIndexDbError,
+    );
+  });
+
+  it('throws RepoIndexDbError when opening a truncated db file shorter than the SQLite header', async () => {
+    const dbFilePath = path.join(tmpDir, 'repos.sqlite');
+    fs.writeFileSync(dbFilePath, Buffer.from([0x00]));
+    await expect(createSqliteRepoIndexStore(dbFilePath)).rejects.toBeInstanceOf(
+      RepoIndexDbError,
+    );
   });
 
   it('throws RepoIndexDbError when opening a corrupt db file', async () => {
