@@ -32,6 +32,7 @@ export class RepoIndexService {
   private scanController: AbortController | null = null;
   private dbWarned = false;
   private capWarned = false;
+  private disposed = false;
 
   constructor(deps: RepoIndexServiceDeps) {
     this.deps = deps;
@@ -66,15 +67,31 @@ export class RepoIndexService {
    * on failure) and kick off the first scan.
    */
   async start(): Promise<void> {
+    if (this.disposed) {
+      return;
+    }
+    let opened: RepoIndexStore;
     try {
-      this.store = await this.deps.openStore();
+      opened = await this.deps.openStore();
     } catch {
+      if (this.disposed) {
+        return;
+      }
       if (!this.dbWarned) {
         this.dbWarned = true;
         this.deps.onWarning?.(DB_UNAVAILABLE_WARNING);
       }
-      this.store = this.deps.openMemoryStore();
+      opened = this.deps.openMemoryStore();
     }
+    if (this.disposed) {
+      try {
+        opened.close();
+      } catch {
+        // ignore close errors during teardown
+      }
+      return;
+    }
+    this.store = opened;
     this.notify();
     this.startScan();
   }
@@ -84,6 +101,9 @@ export class RepoIndexService {
    * background; callers observe progress via {@link subscribe}.
    */
   startScan(): void {
+    if (this.disposed) {
+      return;
+    }
     this.scanController?.abort();
     const controller = new AbortController();
     this.scanController = controller;
@@ -149,6 +169,7 @@ export class RepoIndexService {
 
   /** Abort any in-progress scan and release the backing store. */
   dispose(): void {
+    this.disposed = true;
     this.scanController?.abort();
     this.scanController = null;
     if (this.status !== 'idle') {
