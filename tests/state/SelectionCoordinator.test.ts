@@ -117,6 +117,29 @@ describe('SelectionCoordinator', () => {
       expect(selection.getSnapshot().repoRoot).toBe('d:/ws/apps/api');
       expect(coordinator.isLocked()).toBe(true);
     });
+
+    it('preserves preference on empty index then applies it when scan completes', () => {
+      const pref = makePreference('/ws/apps/api');
+      const setSpy = vi.spyOn(pref, 'set');
+      const { selection, coordinator, rootsGetter } = makeCoordinator({
+        roots: [],
+        preference: pref,
+        activeFile: null,
+      });
+
+      coordinator.resolveInitial();
+
+      expect(setSpy).not.toHaveBeenCalledWith(null);
+      expect(pref.get()).toBe('/ws/apps/api');
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+
+      rootsGetter.mockReturnValue(['/ws/apps/api']);
+      coordinator.onIndexUpdated();
+
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
+      expect(coordinator.isLocked()).toBe(true);
+    });
   });
 
   describe('onActiveEditorChanged', () => {
@@ -326,18 +349,19 @@ describe('SelectionCoordinator', () => {
       expect(coordinator.isLocked()).toBe(true);
     });
 
-    it('clears stale preference during re-resolve', () => {
+    it('clears stale preference during re-resolve once index is authoritative', () => {
       const pref = makePreference('/gone/repo');
       const setSpy = vi.spyOn(pref, 'set');
-      const { coordinator } = makeCoordinator({
+      const { coordinator, rootsGetter } = makeCoordinator({
         roots: [],
         preference: pref,
       });
       coordinator.resolveInitial();
-      expect(setSpy).toHaveBeenCalledWith(null);
+      expect(setSpy).not.toHaveBeenCalledWith(null);
 
+      rootsGetter.mockReturnValue(['/ws/apps/api']);
       coordinator.onSelectedRepoInvalid();
-      // Preference remains cleared; no throw, stays unlocked.
+      expect(setSpy).toHaveBeenCalledWith(null);
       expect(coordinator.isLocked()).toBe(false);
     });
   });
