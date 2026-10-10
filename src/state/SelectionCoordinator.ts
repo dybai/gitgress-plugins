@@ -8,6 +8,7 @@ export type ManualRepoPreference = {
 
 export class SelectionCoordinator {
   private locked = false;
+  private indexAuthoritative = false;
 
   constructor(
     private readonly selection: Pick<SelectionState, 'getSnapshot' | 'setRepo'>,
@@ -16,7 +17,7 @@ export class SelectionCoordinator {
     private readonly getActiveFilePath: () => string | null,
   ) {}
 
-  /** Apply preference → editor → empty. Clears stale preference when index is authoritative. */
+  /** Apply preference → editor → empty. Clears stale preference when the index is authoritative. */
   resolveInitial(): void {
     const pref = this.preference.get();
     if (pref != null) {
@@ -26,9 +27,11 @@ export class SelectionCoordinator {
         this.locked = true;
         return;
       }
-      // Only clear when the index is non-empty but omits the preference (stale).
-      // An empty index may be transient before the first scan completes.
-      if (this.getIndexedRoots().length > 0) {
+      // Clear a stale preference once the index is authoritative, or when the
+      // index is non-empty and provably omits it. An empty non-authoritative
+      // index may be transient before the first scan completes, so preserve
+      // the preference to allow the preferred-appeared path in onIndexUpdated.
+      if (this.indexAuthoritative || this.getIndexedRoots().length > 0) {
         this.preference.set(null);
       }
     }
@@ -46,7 +49,9 @@ export class SelectionCoordinator {
 
   /**
    * Index grew/changed: if unlocked and empty, try editor rule; if a preferred
-   * repo appeared, apply preference. Do not unlock a sticky selection.
+   * repo appeared, apply preference. Do not unlock a sticky selection. Once
+   * the index is authoritative, a non-matching preference is cleared so it
+   * cannot be silently resurrected later.
    */
   onIndexUpdated(): void {
     if (this.locked) {
@@ -61,6 +66,9 @@ export class SelectionCoordinator {
         this.locked = true;
         return;
       }
+      if (this.indexAuthoritative || this.getIndexedRoots().length > 0) {
+        this.preference.set(null);
+      }
     }
 
     if (this.selection.getSnapshot().repoRoot === null) {
@@ -70,6 +78,32 @@ export class SelectionCoordinator {
         this.locked = true;
       }
     }
+  }
+
+  /**
+   * Scan completed and the index is now authoritative. Clear any preference
+   * that is not backed by the index (including an empty index), then apply
+   * resolve rules. A locked selection that vanished from the authoritative
+   * index is unlocked and re-resolved.
+   */
+  onScanIdle(): void {
+    this.indexAuthoritative = true;
+    const pref = this.preference.get();
+    if (pref != null && !this.indexContains(normalizeRepoPath(pref))) {
+      this.preference.set(null);
+    }
+
+    if (this.locked) {
+      const current = this.selection.getSnapshot().repoRoot;
+      if (current != null && !this.indexContains(current)) {
+        this.locked = false;
+        this.selection.setRepo(null);
+        this.resolveInitial();
+      }
+      return;
+    }
+
+    this.resolveInitial();
   }
 
   onActiveEditorChanged(): void {
@@ -93,8 +127,21 @@ export class SelectionCoordinator {
     this.preference.set(normalized);
   }
 
-  /** Selected repo vanished: setRepo(null), unlock, then resolveInitial(). */
+  /**
+   * Selected repo vanished: if the manual preference points at the same
+   * vanished root, drop it so the re-resolve cannot resurrect it. Then
+   * setRepo(null), unlock, and resolveInitial().
+   */
   onSelectedRepoInvalid(): void {
+    const current = this.selection.getSnapshot().repoRoot;
+    const pref = this.preference.get();
+    if (
+      current != null &&
+      pref != null &&
+      normalizeRepoPath(pref) === normalizeRepoPath(current)
+    ) {
+      this.preference.set(null);
+    }
     this.selection.setRepo(null);
     this.locked = false;
     this.resolveInitial();
