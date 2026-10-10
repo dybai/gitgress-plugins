@@ -12,6 +12,7 @@ import { switchBranch } from './commands/switchBranch';
 import { DiffService } from './diff/DiffService';
 import { GITGRESS_SCHEME } from './diff/gitgressUri';
 import { GitgressContentProvider } from './diff/GitgressContentProvider';
+import { pickActiveFilePath } from './extension/activeFilePath';
 import { GitService } from './git/GitService';
 import { createRunGit } from './git/runGit';
 import { createNodeScanFs } from './repoIndex/nodeScanFs';
@@ -31,9 +32,25 @@ function workspaceRoots(): string[] {
   return (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath);
 }
 
+function tabFileUris(): { scheme: string; fsPath: string }[] {
+  const uris: { scheme: string; fsPath: string }[] = [];
+  for (const group of vscode.window.tabGroups.all) {
+    for (const tab of group.tabs) {
+      const input = tab.input;
+      if (input instanceof vscode.TabInputText) {
+        uris.push({ scheme: input.uri.scheme, fsPath: input.uri.fsPath });
+      }
+    }
+  }
+  return uris;
+}
+
 function activeFilePath(): string | null {
-  const uri = vscode.window.activeTextEditor?.document.uri;
-  return uri !== undefined && uri.scheme === 'file' ? uri.fsPath : null;
+  return pickActiveFilePath({
+    activeEditorUri: vscode.window.activeTextEditor?.document.uri ?? null,
+    visibleEditorUris: vscode.window.visibleTextEditors.map((editor) => editor.document.uri),
+    tabUris: tabFileUris(),
+  });
 }
 
 function createRepoIndex(context: vscode.ExtensionContext): RepoIndexService {
@@ -169,6 +186,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
     vscode.commands.registerCommand('gitgress.refresh', refreshGitgress),
     vscode.window.onDidChangeActiveTextEditor(() => {
+      coordinator.onActiveEditorChanged();
+    }),
+    // Webview focus clears activeTextEditor; visible editors / tabs still carry
+    // the open file used for auto repo selection.
+    vscode.window.onDidChangeVisibleTextEditors(() => {
       coordinator.onActiveEditorChanged();
     }),
     vscode.workspace.onDidChangeWorkspaceFolders(reloadRepository),
