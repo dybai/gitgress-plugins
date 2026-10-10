@@ -4,27 +4,23 @@ All notable changes to GitGress are documented in this file.
 
 ## 1.0.7
 
-- Files icons now resolve Seti-style `languageIds` mappings via VS Code language
-  contributions (e.g. `.java`, `.yaml`, `.ts`), so common types no longer share
-  one generic default icon.
-
-## 1.0.6
-
-- Split Files icon DOM helpers so extension host TypeScript compile no longer
-  depends on DOM lib; theme image load errors keep tree `slot` attributes.
-
-## 1.0.5
-
 - Files panel shows file and folder icons from the active File Icon Theme
   (SVG or Seti font glyphs), with Codicon fallback when a theme icon is
   unavailable.
-- Icons refresh when the icon theme or color theme changes; CSP allows theme
-  image/font resources in the Files webview.
+- Icons follow Seti-style `languageIds` mappings (e.g. `.java`, `.yaml`, `.ts`)
+  via VS Code language contributions, and refresh when the icon or color theme
+  changes.
 
 ## 1.0.4
 
-- Commits tip pills: skip remote `HEAD` tip markers and restyle remote branch
-  pills for clearer local vs remote distinction.
+- Multi-repository discovery and selection: background repo index, Select
+  Repository command, sticky selection across scans, and scan progress in
+  Commits.
+- Commits UI: selected-repo header, HEAD / branch tip pills, two-line rows, and
+  in-pill tip jump between loaded tip commits.
+- Tip pills skip remote `HEAD` markers and restyle remote branches for clearer
+  local vs remote distinction.
+- More reliable repo selection from the active editor / open file path.
 
 ## 1.0.0
 
