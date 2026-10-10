@@ -7,9 +7,14 @@ All notable changes to GitGress are documented in this file.
 - Files panel shows file and folder icons from the active File Icon Theme
   (SVG or Seti font glyphs), with Codicon fallback when a theme icon is
   unavailable.
+- Icons refresh when the icon theme or color theme changes; the Files webview
+  CSP allows theme image and font resources.
+- Theme image load failures fall back without breaking tree icon slots;
+  light-theme file mappings fall back correctly when light-specific entries
+  are missing.
 - Icons follow Seti-style `languageIds` mappings (e.g. `.java`, `.yaml`, `.ts`)
-  via VS Code language contributions, and refresh when the icon or color theme
-  changes.
+  via VS Code language contributions, so common types no longer share one
+  generic default icon.
 
 ## 1.0.4
 
