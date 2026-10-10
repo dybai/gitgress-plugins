@@ -1,0 +1,26 @@
+{
+  "fonts": [
+    {
+      "id": "seti",
+      "src": [{ "path": "./seti.woff", "format": "woff" }]
+    }
+  ],
+  "iconDefinitions": {
+    "_ts": { "fontCharacter": "\uE099", "fontColor": "#519aba" },
+    "_ts_test": { "fontCharacter": "\uE099", "fontColor": "#cc6d2e" },
+    "_default": { "fontCharacter": "\uE023", "fontColor": "#d4d7d6" },
+    "_svg_file": { "iconPath": "./icons/file.svg" },
+    "_folder": { "iconPath": "./icons/folder.svg" },
+    "_folder_open": { "iconPath": "./icons/folder-open.svg" }
+  },
+  "file": "_default",
+  "folder": "_folder",
+  "folderExpanded": "_folder_open",
+  "fileExtensions": {
+    "ts": "_ts",
+    "test.ts": "_ts_test"
+  },
+  "fileNames": {
+    "readme.md": "_svg_file"
+  }
+}
