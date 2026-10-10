@@ -51,6 +51,7 @@ export async function* scanRepos(
     } catch {
       continue;
     }
+    if (signal?.aborted) return;
 
     if (hasGit) {
       yield { root: normalizeRepoPath(dir), source: 'scan' };
@@ -72,6 +73,7 @@ export async function* scanRepos(
           } catch {
             continue;
           }
+          if (signal?.aborted) return;
           if (subHasGit) {
             yield { root: normalizeRepoPath(subPath), source: 'submodule' };
           }

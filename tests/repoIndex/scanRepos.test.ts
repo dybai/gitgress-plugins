@@ -7,14 +7,21 @@ import {
 
 type FsEntry = { kind: 'dir'; names: string[] } | { kind: 'file'; content: string };
 
-function makeFs(entries: Record<string, FsEntry>, throwsOn?: string[]): ScanFs {
+type MakeFsOptions = {
+  throwsOn?: string[];
+  throwsOnReaddir?: string[];
+};
+
+function makeFs(entries: Record<string, FsEntry>, options?: MakeFsOptions | string[]): ScanFs {
+  const opts: MakeFsOptions = Array.isArray(options) ? { throwsOn: options } : (options ?? {});
   const map = new Map(Object.entries(entries));
-  const shouldThrow = (p: string) => throwsOn?.includes(p) ?? false;
+  const shouldThrow = (p: string) => opts.throwsOn?.includes(p) ?? false;
+  const shouldThrowReaddir = (p: string) => opts.throwsOnReaddir?.includes(p) ?? false;
   const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '');
   const fs: ScanFs = {
     async readdir(path: string): Promise<string[]> {
       const p = norm(path);
-      if (shouldThrow(p)) throw new Error(`readdir ${p}`);
+      if (shouldThrowReaddir(p) || shouldThrow(p)) throw new Error(`readdir ${p}`);
       const e = map.get(p);
       if (!e || e.kind !== 'dir') throw new Error(`not a dir ${p}`);
       return [...e.names];
@@ -126,18 +133,71 @@ describe('scanRepos', () => {
     expect(out[0].root).toBe('/ws/a');
   });
 
-  it('skips entries whose readdir or isDirectory fails', async () => {
+  it('skips entries whose isDirectory fails', async () => {
     const fs = makeFs(
       {
         '/ws': { kind: 'dir', names: ['broken', 'good'] },
         '/ws/good': { kind: 'dir', names: ['.git'] },
         '/ws/good/.git': { kind: 'dir', names: [] },
       },
-      ['/ws/broken'],
+      { throwsOn: ['/ws/broken'] },
     );
     const out = [];
     for await (const r of scanRepos(['/ws'], fs)) out.push(r);
     expect(out).toEqual([{ root: '/ws/good', source: 'scan' }]);
+  });
+
+  it('skips a child directory when readdir fails on that path', async () => {
+    const fs = makeFs(
+      {
+        '/ws': { kind: 'dir', names: ['broken-read', 'good'] },
+        '/ws/broken-read': { kind: 'dir', names: [] },
+        '/ws/good': { kind: 'dir', names: ['.git'] },
+        '/ws/good/.git': { kind: 'dir', names: [] },
+      },
+      { throwsOnReaddir: ['/ws/broken-read'] },
+    );
+    const out = [];
+    for await (const r of scanRepos(['/ws'], fs)) out.push(r);
+    expect(out).toEqual([{ root: '/ws/good', source: 'scan' }]);
+  });
+
+  it('does not yield after abort while exists is pending', async () => {
+    const baseFs = makeFs({
+      '/ws': { kind: 'dir', names: ['pending'] },
+      '/ws/pending': { kind: 'dir', names: [] },
+    });
+    let resolveExists!: (value: boolean) => void;
+    const pendingGitExists = new Promise<boolean>((resolve) => {
+      resolveExists = resolve;
+    });
+    let notifyDeferredExists!: () => void;
+    const deferredExistsReached = new Promise<void>((resolve) => {
+      notifyDeferredExists = resolve;
+    });
+    const norm = (p: string) => p.replace(/\\/g, '/').replace(/\/+$/, '');
+    const fs: ScanFs = {
+      ...baseFs,
+      async exists(path: string): Promise<boolean> {
+        if (norm(path) === '/ws/pending/.git') {
+          notifyDeferredExists();
+          return pendingGitExists;
+        }
+        return baseFs.exists(path);
+      },
+    };
+
+    const ctrl = new AbortController();
+    const iter = scanRepos(['/ws'], fs, { signal: ctrl.signal });
+    const pendingNext = iter.next();
+    await deferredExistsReached;
+
+    ctrl.abort();
+    resolveExists(true);
+
+    const result = await pendingNext;
+    expect(result.done).toBe(true);
+    expect(result.value).toBeUndefined();
   });
 
   it('honors a custom ignore set', async () => {
