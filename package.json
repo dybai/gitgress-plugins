@@ -2,11 +2,36 @@
   "name": "gitgress",
   "displayName": "GitGress",
   "description": "Multi-lane commit graph, paginated history, changed files, and parent-commit diffs",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "publisher": "dybai",
   "license": "MIT",
-  "engines": { "vscode": "^1.85.0" },
-  "categories": ["SCM Providers", "Other"],
+  "icon": "media/gitgress-icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dybai/gitgress-plugins.git"
+  },
+  "homepage": "https://github.com/dybai/gitgress-plugins",
+  "bugs": {
+    "url": "https://github.com/dybai/gitgress-plugins/issues"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Visualization"
+  ],
+  "keywords": [
+    "git",
+    "commit",
+    "history",
+    "graph",
+    "scm",
+    "diff",
+    "merge",
+    "repository",
+    "gitgress"
+  ],
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
@@ -21,14 +46,33 @@
     },
     "views": {
       "gitgress": [
-        { "type": "webview", "id": "gitgress.commits", "name": "Commits" },
-        { "type": "webview", "id": "gitgress.files", "name": "Files" }
+        {
+          "type": "webview",
+          "id": "gitgress.commits",
+          "name": "Commits"
+        },
+        {
+          "type": "webview",
+          "id": "gitgress.files",
+          "name": "Files"
+        }
       ]
     },
     "commands": [
-      { "command": "gitgress.switchBranch", "title": "GitGress: Switch Branch", "icon": "$(git-branch)" },
-      { "command": "gitgress.refresh", "title": "GitGress: Refresh", "icon": "$(refresh)" },
-      { "command": "gitgress.openFileDiff", "title": "GitGress: Open File Diff" }
+      {
+        "command": "gitgress.switchBranch",
+        "title": "GitGress: Switch Branch",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "gitgress.refresh",
+        "title": "GitGress: Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "gitgress.openFileDiff",
+        "title": "GitGress: Open File Diff"
+      }
     ],
     "menus": {
       "commandPalette": [
@@ -58,7 +102,10 @@
     "watch": "tsc -watch -p ./",
     "test": "vitest run",
     "test:watch": "vitest",
-    "vscode:prepublish": "npm run compile"
+    "vscode:prepublish": "npm run compile",
+    "package": "vsce package",
+    "publish:vscode": "vsce publish",
+    "publish:ovsx": "ovsx publish"
   },
   "dependencies": {
     "@vscode-elements/elements": "^2.5.1"
@@ -66,7 +113,9 @@
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.25.0",
+    "ovsx": "^1.2.0",
     "typescript": "^5.4.0",
     "vitest": "^2.0.0"
   }

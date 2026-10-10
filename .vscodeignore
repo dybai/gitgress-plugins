@@ -1,0 +1,17 @@
+.vscode/**
+.vscode-test/**
+.worktrees/**
+.tmp/**
+.superpowers/**
+.git/**
+.gitignore
+src/**
+webview/**
+tests/**
+scripts/**
+**/*.ts
+**/*.map
+tsconfig.json
+vitest.config.ts
+**/.DS_Store
+**/Thumbs.db
