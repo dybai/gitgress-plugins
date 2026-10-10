@@ -22,18 +22,28 @@ describe('buildFilesMessage', () => {
   });
 
   it('returns filesError when error is given', () => {
-    const msg = buildFilesMessage({ repoRoot: '/r', commitId: 'abc' }, null, 'auto', 'boom');
+    const msg = buildFilesMessage(
+      { repoRoot: '/r', commitId: 'abc' },
+      null,
+      'auto',
+      undefined,
+      'boom',
+    );
     expect(msg).toEqual({ type: 'filesError', message: 'boom' });
   });
 
   it('resolves auto layout by file count', () => {
-    const msg = buildFilesMessage({ repoRoot: '/r', commitId: 'abc' }, files, 'auto');
+    const msg = buildFilesMessage({ repoRoot: '/r', commitId: 'abc' }, files, 'auto', undefined);
     expect(msg).toMatchObject({
       type: 'filesLoaded',
       layoutPreference: 'auto',
       effectiveLayout: 'list',
     });
     expect(isHostToFilesWebview(msg)).toBe(true);
+    if (msg.type === 'filesLoaded') {
+      expect(msg.icons.files['a.ts']).toEqual({ kind: 'codicon', id: 'file' });
+      expect(msg.icons.folder).toEqual({ kind: 'codicon', id: 'folder' });
+    }
   });
 
   it('honors explicit tree preference and many files', () => {

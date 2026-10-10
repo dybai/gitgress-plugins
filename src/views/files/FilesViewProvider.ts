@@ -1,16 +1,23 @@
 import * as fs from 'node:fs';
+import { dirname, join } from 'node:path';
 import * as vscode from 'vscode';
 import { openFileDiffByPath } from '../../commands/openFileDiff';
 import { openWorkingFile } from '../../commands/openWorkingFile';
 import type { DiffService } from '../../diff/DiffService';
-import type { GitService } from '../../git/GitService';
+import type { ChangedFile, GitService } from '../../git/GitService';
 import {
   isFilesWebviewToHost,
   type FilesWebviewToHost,
   type HostToFilesWebview,
 } from '../../protocol/filesMessages';
 import type { SelectionSnapshot, SelectionState } from '../../state/SelectionState';
-import { buildFilesMessage } from './buildFilesPayload';
+import { buildFilesMessage, codiconOnlyIcons } from './buildFilesPayload';
+import {
+  findIconThemeContribution,
+  loadThemeDocument,
+  resolveIconsForFiles,
+} from './fileIconThemeHost';
+import type { FilesIconsPayload } from '../../protocol/filesMessages';
 import { matchesSelection, resolveLoadedTarget, type LoadedFiles } from './loadedFiles';
 import { normalizeFilesLayoutPreference, type FilesLayoutPreference } from './resolveFilesLayout';
 
@@ -23,6 +30,7 @@ function readLayout(state: vscode.Memento): FilesLayoutPreference {
 export class FilesViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   private view: vscode.WebviewView | undefined;
   private readonly unsubscribe: () => void;
+  private readonly disposables: vscode.Disposable[] = [];
   private loadVersion = 0;
   private loaded: LoadedFiles | null = null;
   private selectedPath: string | null = null;
@@ -37,17 +45,21 @@ export class FilesViewProvider implements vscode.WebviewViewProvider, vscode.Dis
     this.unsubscribe = selection.subscribe((snapshot) => {
       void this.load(snapshot);
     });
+    this.disposables.push(
+      vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration('workbench.iconTheme')) {
+          this.refreshIconsOnly();
+        }
+      }),
+      vscode.window.onDidChangeActiveColorTheme(() => {
+        this.refreshIconsOnly();
+      }),
+    );
   }
 
   resolveWebviewView(view: vscode.WebviewView): void {
     this.view = view;
-    view.webview.options = {
-      enableScripts: true,
-      localResourceRoots: [
-        vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview'),
-        vscode.Uri.joinPath(this.extensionUri, 'media'),
-      ],
-    };
+    this.applyResourceRoots(view);
     view.webview.html = this.getHtml(view.webview);
 
     view.webview.onDidReceiveMessage((message: unknown) => {
@@ -69,6 +81,9 @@ export class FilesViewProvider implements vscode.WebviewViewProvider, vscode.Dis
 
   dispose(): void {
     this.unsubscribe();
+    for (const disposable of this.disposables) {
+      disposable.dispose();
+    }
     this.view = undefined;
     this.resetLoaded();
   }
@@ -123,7 +138,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider, vscode.Dis
 
     if (repoRoot === null || selectedCommitId === null) {
       this.resetLoaded();
-      this.post(buildFilesMessage(target, null, preference), version, view);
+      this.post(buildFilesMessage(target, null, preference, undefined), version, view);
       return;
     }
 
@@ -132,18 +147,125 @@ export class FilesViewProvider implements vscode.WebviewViewProvider, vscode.Dis
       if (!this.isCurrent(version, view)) {
         return;
       }
+      const icons = this.resolveIcons(view, files.map((file) => file.path));
       this.loaded = { repoRoot, commitId: selectedCommitId, files };
-      this.post(buildFilesMessage(target, files, preference), version, view);
+      this.post(buildFilesMessage(target, files, preference, icons), version, view);
     } catch {
       if (!this.isCurrent(version, view)) {
         return;
       }
       this.resetLoaded();
       this.post(
-        buildFilesMessage(target, null, preference, 'Unable to load changed files'),
+        buildFilesMessage(
+          target,
+          null,
+          preference,
+          undefined,
+          'Unable to load changed files',
+        ),
         version,
         view,
       );
+    }
+  }
+
+  private refreshIconsOnly(): void {
+    const view = this.view;
+    if (view === undefined) {
+      return;
+    }
+    if (this.loaded === null) {
+      this.refresh();
+      return;
+    }
+    const { repoRoot, commitId, files } = this.loaded;
+    const target = { repoRoot, commitId };
+    const preference = readLayout(this.state);
+    const fileList = files as ChangedFile[];
+    const icons = this.resolveIcons(view, fileList.map((file) => file.path));
+    this.post(
+      buildFilesMessage(target, fileList, preference, icons),
+      this.loadVersion,
+      view,
+    );
+  }
+
+  private baseResourceRoots(): vscode.Uri[] {
+    return [
+      vscode.Uri.joinPath(this.extensionUri, 'dist', 'webview'),
+      vscode.Uri.joinPath(this.extensionUri, 'media'),
+    ];
+  }
+
+  private applyResourceRoots(view: vscode.WebviewView, themeRoot?: vscode.Uri): void {
+    const roots = this.baseResourceRoots();
+    if (themeRoot !== undefined) {
+      roots.push(themeRoot);
+    }
+    view.webview.options = {
+      enableScripts: true,
+      localResourceRoots: roots,
+    };
+  }
+
+  private builtInSetiThemeCandidates(): readonly string[] {
+    return [
+      join(
+        vscode.env.appRoot,
+        'extensions',
+        'theme-seti',
+        'icons',
+        'vs-seti-icon-theme.json',
+      ),
+    ];
+  }
+
+  private resolveIcons(
+    view: vscode.WebviewView,
+    paths: readonly string[],
+  ): FilesIconsPayload {
+    try {
+      const iconThemeId = vscode.workspace
+        .getConfiguration()
+        .get<string>('workbench.iconTheme');
+      const contribution = findIconThemeContribution(
+        iconThemeId,
+        vscode.extensions.all.map((extension) => ({
+          extensionPath: extension.extensionPath,
+          packageJSON: extension.packageJSON as {
+            contributes?: { iconThemes?: Array<{ id: string; path: string }> };
+          },
+        })),
+        this.builtInSetiThemeCandidates(),
+      );
+
+      if (contribution === undefined) {
+        this.applyResourceRoots(view);
+        return codiconOnlyIcons(paths);
+      }
+
+      const document = loadThemeDocument(contribution.jsonFsPath, (fsPath) =>
+        fs.readFileSync(fsPath, 'utf8'),
+      );
+      const themeDirFsPath = dirname(contribution.jsonFsPath);
+      const kind = vscode.window.activeColorTheme.kind;
+      const light =
+        kind === vscode.ColorThemeKind.Light ||
+        kind === vscode.ColorThemeKind.HighContrastLight;
+
+      this.applyResourceRoots(view, vscode.Uri.file(contribution.extensionRootFsPath));
+
+      return resolveIconsForFiles({
+        theme: document,
+        themeDirFsPath,
+        paths,
+        light,
+        toWebviewUri: (fsPath) =>
+          view.webview.asWebviewUri(vscode.Uri.file(fsPath)).toString(),
+      });
+    } catch {
+      this.applyResourceRoots(view);
+      return codiconOnlyIcons(paths);
     }
   }
 

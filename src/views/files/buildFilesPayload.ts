@@ -1,9 +1,27 @@
 import type { ChangedFile } from '../../git/GitService';
-import type { HostToFilesWebview } from '../../protocol/filesMessages';
+import type { FilesIconsPayload, HostToFilesWebview } from '../../protocol/filesMessages';
+import {
+  CODICON_FILE,
+  CODICON_FOLDER,
+  CODICON_FOLDER_OPEN,
+} from './codiconFileIcons';
 import {
   resolveFilesLayout,
   type FilesLayoutPreference,
 } from './resolveFilesLayout';
+
+export function codiconOnlyIcons(paths: readonly string[]): FilesIconsPayload {
+  const fileIcons: FilesIconsPayload['files'] = {};
+  for (const path of paths) {
+    fileIcons[path] = CODICON_FILE;
+  }
+  return {
+    files: fileIcons,
+    folder: CODICON_FOLDER,
+    folderOpen: CODICON_FOLDER_OPEN,
+    fonts: [],
+  };
+}
 
 export type FilesLoadTarget = {
   repoRoot: string | null;
@@ -14,6 +32,7 @@ export function buildFilesMessage(
   target: FilesLoadTarget,
   files: ChangedFile[] | null,
   preference: FilesLayoutPreference,
+  icons: FilesIconsPayload | undefined,
   error?: string,
 ): HostToFilesWebview {
   const { repoRoot, commitId } = target;
@@ -27,6 +46,7 @@ export function buildFilesMessage(
   if (list.length === 0) {
     return { type: 'filesEmpty', reason: 'noFiles', message: 'No changed files' };
   }
+  const paths = list.map((file) => file.path);
   return {
     type: 'filesLoaded',
     commitId,
@@ -40,5 +60,6 @@ export function buildFilesMessage(
     })),
     layoutPreference: preference,
     effectiveLayout: resolveFilesLayout(preference, list.length),
+    icons: icons ?? codiconOnlyIcons(paths),
   };
 }
