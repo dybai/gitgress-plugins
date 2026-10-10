@@ -16,7 +16,7 @@ export class SelectionCoordinator {
     private readonly getActiveFilePath: () => string | null,
   ) {}
 
-  /** Apply preference → editor → empty. Clears stale preference. */
+  /** Apply preference → editor → empty. Clears stale preference when index is authoritative. */
   resolveInitial(): void {
     const pref = this.preference.get();
     if (pref != null) {
@@ -26,8 +26,11 @@ export class SelectionCoordinator {
         this.locked = true;
         return;
       }
-      // Stale preference: clear it and fall through.
-      this.preference.set(null);
+      // Only clear when the index is non-empty but omits the preference (stale).
+      // An empty index may be transient before the first scan completes.
+      if (this.getIndexedRoots().length > 0) {
+        this.preference.set(null);
+      }
     }
 
     const owner = this.editorOwningRoot();
