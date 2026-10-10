@@ -32,14 +32,10 @@ export class SelectionCoordinator {
         this.locked = true;
         return;
       }
-      // Clear a stale preference once the index is authoritative, or when the
-      // index is non-empty and provably omits it. An empty non-authoritative
-      // index may be transient before the first scan completes, so preserve
-      // the preference to allow the preferred-appeared path in onIndexUpdated.
-      if (
-        (this.indexAuthoritative || this.getIndexedRoots().length > 0) &&
-        !this.indexContains(normalizedPref)
-      ) {
+      // Clear a stale preference only once the index is authoritative (scan
+      // idle). A partial or cached-but-in-flight index may omit a repo the walk
+      // has not reached yet.
+      if (this.indexAuthoritative && !this.indexContains(normalizedPref)) {
         this.preference.set(null);
       }
     }
@@ -77,10 +73,7 @@ export class SelectionCoordinator {
         this.locked = true;
         return;
       }
-      if (
-        (this.indexAuthoritative || this.getIndexedRoots().length > 0) &&
-        !this.indexContains(normalizedPref)
-      ) {
+      if (this.indexAuthoritative && !this.indexContains(normalizedPref)) {
         this.preference.set(null);
       }
     }

@@ -52,7 +52,7 @@ describe('SelectionCoordinator', () => {
       expect(coordinator.isLocked()).toBe(true);
     });
 
-    it('clears stale preference and falls back to editor owning root', () => {
+    it('defers clearing stale preference until scan idle when index is non-empty but not authoritative', () => {
       const pref = makePreference('/gone/repo');
       const setSpy = vi.spyOn(pref, 'set');
       const { selection, coordinator } = makeCoordinator({
@@ -63,10 +63,15 @@ describe('SelectionCoordinator', () => {
 
       coordinator.resolveInitial();
 
-      expect(setSpy).toHaveBeenCalledWith(null);
-      expect(pref.get()).toBeNull();
+      expect(setSpy).not.toHaveBeenCalledWith(null);
+      expect(pref.get()).toBe('/gone/repo');
       expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
       expect(coordinator.isLocked()).toBe(true);
+
+      coordinator.onScanIdle();
+
+      expect(setSpy).toHaveBeenCalledWith(null);
+      expect(pref.get()).toBeNull();
     });
 
     it('uses editor deepest prefix when no preference', () => {
@@ -303,6 +308,58 @@ describe('SelectionCoordinator', () => {
       expect(selection.getSnapshot().repoRoot).toBe('/ws/other');
       expect(coordinator.isLocked()).toBe(true);
     });
+
+    it('preserves preference through mid-scan non-matching roots and applies when preferred repo appears', () => {
+      const pref = makePreference('/ws/b');
+      const setSpy = vi.spyOn(pref, 'set');
+      const { selection, coordinator, rootsGetter } = makeCoordinator({
+        roots: [],
+        preference: pref,
+        activeFile: null,
+      });
+
+      coordinator.resolveInitial();
+      expect(pref.get()).toBe('/ws/b');
+      expect(setSpy).not.toHaveBeenCalledWith(null);
+
+      rootsGetter.mockReturnValue(['/ws/a']);
+      coordinator.onIndexUpdated();
+
+      expect(setSpy).not.toHaveBeenCalledWith(null);
+      expect(pref.get()).toBe('/ws/b');
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+
+      rootsGetter.mockReturnValue(['/ws/a', '/ws/b']);
+      coordinator.onIndexUpdated();
+
+      expect(setSpy).not.toHaveBeenCalledWith(null);
+      expect(pref.get()).toBe('/ws/b');
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/b');
+      expect(coordinator.isLocked()).toBe(true);
+    });
+
+    it('clears preference on scan idle when completed index still omits preferred repo', () => {
+      const pref = makePreference('/ws/b');
+      const setSpy = vi.spyOn(pref, 'set');
+      const { selection, coordinator, rootsGetter } = makeCoordinator({
+        roots: [],
+        preference: pref,
+        activeFile: null,
+      });
+
+      rootsGetter.mockReturnValue(['/ws/a']);
+      coordinator.onIndexUpdated();
+      expect(setSpy).not.toHaveBeenCalledWith(null);
+      expect(pref.get()).toBe('/ws/b');
+
+      coordinator.onScanIdle();
+
+      expect(setSpy).toHaveBeenCalledWith(null);
+      expect(pref.get()).toBeNull();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+    });
   });
 
   describe('onSelectedRepoInvalid', () => {
@@ -349,7 +406,7 @@ describe('SelectionCoordinator', () => {
       expect(coordinator.isLocked()).toBe(true);
     });
 
-    it('clears stale preference during re-resolve once index is authoritative', () => {
+    it('clears stale preference on scan idle after re-resolve, not during mid-scan', () => {
       const pref = makePreference('/gone/repo');
       const setSpy = vi.spyOn(pref, 'set');
       const { coordinator, rootsGetter } = makeCoordinator({
@@ -360,7 +417,11 @@ describe('SelectionCoordinator', () => {
       expect(setSpy).not.toHaveBeenCalledWith(null);
 
       rootsGetter.mockReturnValue(['/ws/apps/api']);
-      coordinator.onSelectedRepoInvalid();
+      coordinator.onIndexUpdated();
+      expect(setSpy).not.toHaveBeenCalledWith(null);
+      expect(pref.get()).toBe('/gone/repo');
+
+      coordinator.onScanIdle();
       expect(setSpy).toHaveBeenCalledWith(null);
       expect(coordinator.isLocked()).toBe(false);
     });
