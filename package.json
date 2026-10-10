@@ -60,6 +60,11 @@
     },
     "commands": [
       {
+        "command": "gitgress.selectRepository",
+        "title": "GitGress: Select Repository",
+        "icon": "$(repo)"
+      },
+      {
         "command": "gitgress.switchBranch",
         "title": "GitGress: Switch Branch",
         "icon": "$(git-branch)"
@@ -82,6 +87,11 @@
         }
       ],
       "view/title": [
+        {
+          "command": "gitgress.selectRepository",
+          "when": "view == gitgress.commits && gitgress.hasRepositories",
+          "group": "navigation"
+        },
         {
           "command": "gitgress.switchBranch",
           "when": "view == gitgress.commits",
