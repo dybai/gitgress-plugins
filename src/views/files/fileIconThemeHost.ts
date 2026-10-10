@@ -177,10 +177,18 @@ export function resolveIconsForFiles(args: {
   themeDirFsPath: string;
   paths: readonly string[];
   light: boolean;
+  languageIdByExtension?: Readonly<Record<string, string>>;
   toWebviewUri: (fsPath: string) => string;
 }): FilesIconsPayload {
-  const { theme, themeDirFsPath, paths, light, toWebviewUri } = args;
-  const matchOpts = { light };
+  const {
+    theme,
+    themeDirFsPath,
+    paths,
+    light,
+    languageIdByExtension,
+    toWebviewUri,
+  } = args;
+  const matchOpts = { light, languageIdByExtension };
 
   return buildFilesIconPayload({
     paths,
@@ -194,7 +202,7 @@ export function resolveIconsForFiles(args: {
       ),
     resolveFolder: (expanded) =>
       matchedToResolved(
-        matchFolderIcon(theme, expanded, matchOpts),
+        matchFolderIcon(theme, expanded, { light }),
         theme,
         themeDirFsPath,
         expanded ? 'folder-opened' : 'folder',

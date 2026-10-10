@@ -43,6 +43,36 @@ describe('matchFileIcon', () => {
     });
   });
 
+  it('matches languageIds when extension map is provided (Seti-style)', () => {
+    const languageIdByExtension = { java: 'java', yaml: 'yaml', yml: 'yaml' };
+    expect(
+      matchFileIcon(theme, 'media/AsrCallbackRoutesReporter.java', {
+        languageIdByExtension,
+      }),
+    ).toMatchObject({
+      kind: 'font',
+      character: '\uE050',
+      color: '#cc3e44',
+    });
+    expect(
+      matchFileIcon(theme, 'docs/nacos/fintech-media.yaml', {
+        languageIdByExtension,
+      }),
+    ).toMatchObject({
+      kind: 'font',
+      character: '\uE0A7',
+      color: '#a074c4',
+    });
+  });
+
+  it('prefers fileExtensions over languageIds', () => {
+    expect(
+      matchFileIcon(theme, 'src/app.ts', {
+        languageIdByExtension: { ts: 'typescript' },
+      }),
+    ).toMatchObject({ color: '#519aba' });
+  });
+
   it('light mode falls back default file to top-level when light.file missing', () => {
     const lightTheme: FileIconThemeDocument = {
       iconDefinitions: {

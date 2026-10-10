@@ -11,13 +11,14 @@ import {
   type HostToFilesWebview,
 } from '../../protocol/filesMessages';
 import type { SelectionSnapshot, SelectionState } from '../../state/SelectionState';
+import type { FilesIconsPayload } from '../../protocol/filesMessages';
+import { buildLanguageIdByExtension } from './buildLanguageIdByExtension';
 import { buildFilesMessage, codiconOnlyIcons } from './buildFilesPayload';
 import {
   findIconThemeContribution,
   loadThemeDocument,
   resolveIconsForFiles,
 } from './fileIconThemeHost';
-import type { FilesIconsPayload } from '../../protocol/filesMessages';
 import { matchesSelection, resolveLoadedTarget, type LoadedFiles } from './loadedFiles';
 import { normalizeFilesLayoutPreference, type FilesLayoutPreference } from './resolveFilesLayout';
 
@@ -259,6 +260,7 @@ export class FilesViewProvider implements vscode.WebviewViewProvider, vscode.Dis
         themeDirFsPath,
         paths,
         light,
+        languageIdByExtension: buildLanguageIdByExtension(vscode.extensions.all),
         toWebviewUri: (fsPath) =>
           view.webview.asWebviewUri(vscode.Uri.file(fsPath)).toString(),
       });

@@ -10,12 +10,14 @@ export type FileIconThemeDocument = {
   folderExpanded?: string;
   fileNames?: Record<string, string>;
   fileExtensions?: Record<string, string>;
+  languageIds?: Record<string, string>;
   light?: {
     file?: string;
     folder?: string;
     folderExpanded?: string;
     fileNames?: Record<string, string>;
     fileExtensions?: Record<string, string>;
+    languageIds?: Record<string, string>;
   };
 };
 
