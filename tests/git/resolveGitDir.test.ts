@@ -12,7 +12,10 @@ describe('resolveGitDir', () => {
       },
     };
 
-    expect(resolveGitDir('d:/ws/my-repo', io)).toBe(gitPath);
+    expect(resolveGitDir('d:/ws/my-repo', io)).toEqual({
+      gitDir: gitPath,
+      commonDir: gitPath,
+    });
   });
 
   it('resolves an absolute gitdir pointer from a .git file', () => {
@@ -27,9 +30,10 @@ describe('resolveGitDir', () => {
       },
     };
 
-    expect(resolveGitDir('d:/ws/worktree', io)).toBe(
-      'd:/main/.git/worktrees/feature',
-    );
+    expect(resolveGitDir('d:/ws/worktree', io)).toEqual({
+      gitDir: 'd:/main/.git/worktrees/feature',
+      commonDir: 'd:/main/.git',
+    });
   });
 
   it('resolves a relative gitdir pointer against the repo root', () => {
@@ -40,7 +44,44 @@ describe('resolveGitDir', () => {
       readFile: () => 'gitdir: ../../.git/modules/sub\n',
     };
 
-    expect(resolveGitDir('d:/ws/nested/sub', io)).toBe('d:/ws/.git/modules/sub');
+    expect(resolveGitDir('d:/ws/nested/sub', io)).toEqual({
+      gitDir: 'd:/ws/.git/modules/sub',
+      commonDir: 'd:/ws/.git/modules/sub',
+    });
+  });
+
+  it('resolves a relative commondir against the linked worktree gitdir', () => {
+    const gitFile = 'd:/ws/worktree/.git';
+    const gitDir = 'd:/main/.git/worktrees/feature';
+    const commonDirFile = `${gitDir}/commondir`;
+    const io = {
+      exists: (p: string) => p === gitFile || p === commonDirFile,
+      isDirectory: () => false,
+      readFile: (p: string) =>
+        p === gitFile ? `gitdir: ${gitDir}\n` : '../..\n',
+    };
+
+    expect(resolveGitDir('d:/ws/worktree', io)).toEqual({
+      gitDir,
+      commonDir: 'd:/main/.git',
+    });
+  });
+
+  it('uses an absolute commondir path from the linked worktree gitdir', () => {
+    const gitFile = 'd:/ws/worktree/.git';
+    const gitDir = 'd:/storage/git/worktrees/feature';
+    const commonDirFile = `${gitDir}/commondir`;
+    const io = {
+      exists: (p: string) => p === gitFile || p === commonDirFile,
+      isDirectory: () => false,
+      readFile: (p: string) =>
+        p === gitFile ? `gitdir: ${gitDir}\n` : 'D:/shared/common.git\n',
+    };
+
+    expect(resolveGitDir('d:/ws/worktree', io)).toEqual({
+      gitDir,
+      commonDir: 'd:/shared/common.git',
+    });
   });
 
   it('returns null when .git is missing', () => {

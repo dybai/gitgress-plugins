@@ -1,3 +1,5 @@
+import type { GitDirectoryLayout } from './resolveGitDir.js';
+
 export type HistoryWatchTarget = {
   repoRoot: string;
   repoGeneration: number;
@@ -16,8 +18,8 @@ type HistoryFileWatcher = Disposable & {
 
 export type GitHistoryWatcherDeps = {
   debounceMs: number;
-  resolveGitDir: (repoRoot: string) => string | null;
-  createWatcher: (gitDir: string) => HistoryFileWatcher;
+  resolveGitDir: (repoRoot: string) => GitDirectoryLayout | null;
+  createWatcher: (layout: GitDirectoryLayout) => HistoryFileWatcher;
   readTip: (repoRoot: string, branch: string) => Promise<string | null>;
   setTimeout: typeof setTimeout;
   clearTimeout: typeof clearTimeout;
@@ -25,6 +27,7 @@ export type GitHistoryWatcherDeps = {
 
 export class GitHistoryWatcher {
   private generation = 0;
+  private target: HistoryWatchTarget | null = null;
   private watcher: HistoryFileWatcher | null = null;
   private watcherDisposables: Disposable[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -37,6 +40,10 @@ export class GitHistoryWatcher {
   ) {}
 
   retarget(target: HistoryWatchTarget | null): void {
+    if (this.hasSameIdentity(target)) {
+      return;
+    }
+
     this.detach();
     const generation = ++this.generation;
     this.lastTip = null;
@@ -46,18 +53,30 @@ export class GitHistoryWatcher {
       return;
     }
 
-    const gitDir = this.deps.resolveGitDir(target.repoRoot);
-    if (gitDir === null) {
+    let layout: GitDirectoryLayout | null;
+    try {
+      layout = this.deps.resolveGitDir(target.repoRoot);
+    } catch (error) {
+      console.warn(`GitGress: unable to resolve git directory for ${target.repoRoot}`, error);
+      return;
+    }
+    if (layout === null) {
       return;
     }
 
-    this.watcher = this.deps.createWatcher(gitDir);
+    try {
+      this.watcher = this.deps.createWatcher(layout);
+    } catch (error) {
+      console.warn(`GitGress: unable to watch git history in ${layout.gitDir}`, error);
+      return;
+    }
     const schedule = () => this.scheduleRead(target, generation);
     this.watcherDisposables = [
       this.watcher.onDidCreate(schedule),
       this.watcher.onDidChange(schedule),
       this.watcher.onDidDelete(schedule),
     ];
+    this.target = target;
 
     if (target.branch !== null) {
       this.initialRead = this.recordInitialTip(target, generation);
@@ -128,5 +147,16 @@ export class GitHistoryWatcher {
     this.watcherDisposables = [];
     this.watcher?.dispose();
     this.watcher = null;
+    this.target = null;
+  }
+
+  private hasSameIdentity(target: HistoryWatchTarget | null): boolean {
+    return (
+      target !== null &&
+      this.target !== null &&
+      target.repoRoot === this.target.repoRoot &&
+      target.repoGeneration === this.target.repoGeneration &&
+      target.branch === this.target.branch
+    );
   }
 }

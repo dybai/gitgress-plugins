@@ -45,6 +45,8 @@ const target = (
   branch: string | null = 'main',
 ): HistoryWatchTarget => ({ repoRoot, repoGeneration, branch });
 
+const gitLayout = (gitDir: string) => ({ gitDir, commonDir: gitDir });
+
 describe('GitHistoryWatcher', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -66,7 +68,7 @@ describe('GitHistoryWatcher', () => {
     const watcher = new GitHistoryWatcher(
       {
         debounceMs: 1500,
-        resolveGitDir: (repoRoot) => `${repoRoot}/.git`,
+        resolveGitDir: (repoRoot) => gitLayout(`${repoRoot}/.git`),
         createWatcher,
         readTip,
         setTimeout,
@@ -98,7 +100,7 @@ describe('GitHistoryWatcher', () => {
     const watcher = new GitHistoryWatcher(
       {
         debounceMs: 1500,
-        resolveGitDir: () => '/repo/.git',
+        resolveGitDir: () => gitLayout('/repo/.git'),
         createWatcher: () => harness.watcher,
         readTip,
         setTimeout,
@@ -122,6 +124,38 @@ describe('GitHistoryWatcher', () => {
     expect(onChanged).toHaveBeenCalledWith(watchTarget);
   });
 
+  it('keeps a pending debounce when retargeted to the same watch identity', async () => {
+    const harness = createWatcherHarness();
+    const readTip = vi.fn().mockResolvedValueOnce('tip-a').mockResolvedValueOnce('tip-b');
+    const onChanged = vi.fn();
+    const createWatcher = vi.fn(() => harness.watcher);
+    const watcher = new GitHistoryWatcher(
+      {
+        debounceMs: 1500,
+        resolveGitDir: () => gitLayout('/repo/.git'),
+        createWatcher,
+        readTip,
+        setTimeout,
+        clearTimeout,
+      },
+      onChanged,
+    );
+    const watchTarget = target('/repo', 1);
+
+    watcher.retarget(watchTarget);
+    await vi.runAllTicks();
+    harness.fire();
+    await vi.advanceTimersByTimeAsync(1000);
+    watcher.retarget({ ...watchTarget });
+    await vi.advanceTimersByTimeAsync(500);
+
+    expect(createWatcher).toHaveBeenCalledOnce();
+    expect(harness.watcherDispose).not.toHaveBeenCalled();
+    expect(readTip).toHaveBeenCalledTimes(2);
+    expect(onChanged).toHaveBeenCalledOnce();
+    expect(onChanged).toHaveBeenCalledWith(watchTarget);
+  });
+
   it('ignores a debounce completion from a stale generation after retarget', async () => {
     const first = createWatcherHarness();
     const second = createWatcherHarness();
@@ -138,7 +172,7 @@ describe('GitHistoryWatcher', () => {
     const watcher = new GitHistoryWatcher(
       {
         debounceMs: 1500,
-        resolveGitDir: (repoRoot) => `${repoRoot}/.git`,
+        resolveGitDir: (repoRoot) => gitLayout(`${repoRoot}/.git`),
         createWatcher: vi
           .fn<GitHistoryWatcherDeps['createWatcher']>()
           .mockReturnValueOnce(first.watcher)
@@ -169,7 +203,7 @@ describe('GitHistoryWatcher', () => {
     const watcher = new GitHistoryWatcher(
       {
         debounceMs: 1500,
-        resolveGitDir: () => '/repo/.git',
+        resolveGitDir: () => gitLayout('/repo/.git'),
         createWatcher: () => harness.watcher,
         readTip,
         setTimeout,
@@ -198,7 +232,7 @@ describe('GitHistoryWatcher', () => {
     const watcher = new GitHistoryWatcher(
       {
         debounceMs: 1500,
-        resolveGitDir: () => '/repo/.git',
+        resolveGitDir: () => gitLayout('/repo/.git'),
         createWatcher: () => harness.watcher,
         readTip,
         setTimeout,
@@ -235,5 +269,51 @@ describe('GitHistoryWatcher', () => {
     watcher.retarget(null);
 
     expect(createWatcher).not.toHaveBeenCalled();
+  });
+
+  it('warns and stays idle when resolving the git directory throws', () => {
+    const createWatcher = vi.fn();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const watcher = new GitHistoryWatcher(
+      {
+        debounceMs: 1500,
+        resolveGitDir: () => {
+          throw new Error('EACCES');
+        },
+        createWatcher,
+        readTip: vi.fn(),
+        setTimeout,
+        clearTimeout,
+      },
+      vi.fn(),
+    );
+
+    expect(() => watcher.retarget(target('/inaccessible', 1))).not.toThrow();
+    expect(createWatcher).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledOnce();
+
+    warn.mockRestore();
+  });
+
+  it('warns and stays idle when watcher creation throws', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const watcher = new GitHistoryWatcher(
+      {
+        debounceMs: 1500,
+        resolveGitDir: () => gitLayout('/repo/.git'),
+        createWatcher: () => {
+          throw new Error('watch unavailable');
+        },
+        readTip: vi.fn(),
+        setTimeout,
+        clearTimeout,
+      },
+      vi.fn(),
+    );
+
+    expect(() => watcher.retarget(target('/repo', 1))).not.toThrow();
+    expect(warn).toHaveBeenCalledOnce();
+
+    warn.mockRestore();
   });
 });

@@ -16,7 +16,8 @@ import { GitgressContentProvider } from './diff/GitgressContentProvider';
 import { pickActiveFilePath } from './extension/activeFilePath';
 import { GitHistoryWatcher } from './git/GitHistoryWatcher';
 import { GitService } from './git/GitService';
-import { resolveGitDir } from './git/resolveGitDir';
+import { gitHistoryWatchPaths } from './git/historyWatchPaths';
+import { resolveGitDir, type GitDirectoryLayout } from './git/resolveGitDir';
 import { createRunGit } from './git/runGit';
 import { discoverGitRootFromPath } from './repoIndex/discoverGitRootFromPath';
 import { createNodeScanFs } from './repoIndex/nodeScanFs';
@@ -31,15 +32,14 @@ import { FilesViewProvider } from './views/files/FilesViewProvider';
 const MANUAL_REPO_ROOT_KEY = 'gitgress.manualRepoRoot';
 const HAS_REPOSITORIES_CONTEXT = 'gitgress.hasRepositories';
 const INDEX_DB_FILE = 'repos.sqlite';
-const GIT_HISTORY_WATCH_PATTERNS = ['HEAD', 'packed-refs', 'refs/heads/**'] as const;
 
-function createGitHistoryFileWatcher(gitDir: string) {
+function createGitHistoryFileWatcher(layout: GitDirectoryLayout) {
   const watchers: vscode.FileSystemWatcher[] = [];
   try {
-    for (const pattern of GIT_HISTORY_WATCH_PATTERNS) {
+    for (const { base, pattern } of gitHistoryWatchPaths(layout)) {
       watchers.push(
         vscode.workspace.createFileSystemWatcher(
-          new vscode.RelativePattern(gitDir, pattern),
+          new vscode.RelativePattern(base, pattern),
           false,
           false,
           false,
@@ -50,7 +50,7 @@ function createGitHistoryFileWatcher(gitDir: string) {
     for (const watcher of watchers) {
       watcher.dispose();
     }
-    console.warn(`GitGress: unable to watch git history in ${gitDir}`, error);
+    console.warn(`GitGress: unable to watch git history in ${layout.gitDir}`, error);
     return {
       onDidCreate: () => new vscode.Disposable(() => {}),
       onDidChange: () => new vscode.Disposable(() => {}),
@@ -211,15 +211,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     { dispose: () => index.dispose() },
     {
       dispose: selection.subscribe((snapshot) => {
-        historyWatcher.retarget(
-          snapshot.repoRoot === null
-            ? null
-            : {
-                repoRoot: snapshot.repoRoot,
-                repoGeneration: snapshot.repoGeneration,
-                branch: snapshot.branch,
-              },
-        );
+        try {
+          historyWatcher.retarget(
+            snapshot.repoRoot === null
+              ? null
+              : {
+                  repoRoot: snapshot.repoRoot,
+                  repoGeneration: snapshot.repoGeneration,
+                  branch: snapshot.branch,
+                },
+          );
+        } catch (error) {
+          console.warn('GitGress: unable to retarget git history watcher', error);
+        }
       }),
     },
     // A newly selected repo (manual pick, editor rule, index resolution) has no

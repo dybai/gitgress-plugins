@@ -3,10 +3,15 @@ import { normalizeRepoPath } from '../repoIndex/pathNormalize.js';
 
 const GITDIR_PREFIX = 'gitdir: ';
 
+export type GitDirectoryLayout = {
+  gitDir: string;
+  commonDir: string;
+};
+
 /**
- * Resolve gitdir for a repo root.
- * - If `.git` is a directory → return that path
- * - If `.git` is a file starting with `gitdir: ` → return absolute resolved path
+ * Resolve the worktree-local gitdir and shared Git common directory.
+ * - If `.git` is a directory → both paths are `.git`
+ * - If `.git` is a file → resolve its gitdir and optional commondir pointer
  * - Else null
  */
 export function resolveGitDir(
@@ -16,13 +21,13 @@ export function resolveGitDir(
     isDirectory: (p: string) => boolean;
     readFile: (p: string) => string;
   },
-): string | null {
+): GitDirectoryLayout | null {
   const gitPath = normalizeRepoPath(path.join(repoRoot, '.git'));
   if (!io.exists(gitPath)) {
     return null;
   }
   if (io.isDirectory(gitPath)) {
-    return gitPath;
+    return { gitDir: gitPath, commonDir: gitPath };
   }
 
   const firstLine = io.readFile(gitPath).split(/\r?\n/)[0]?.trim() ?? '';
@@ -36,5 +41,25 @@ export function resolveGitDir(
   }
 
   const resolved = path.isAbsolute(raw) ? raw : path.resolve(repoRoot, raw);
-  return normalizeRepoPath(resolved);
+  const gitDir = normalizeRepoPath(resolved);
+  const commonDirFile = normalizeRepoPath(path.join(gitDir, 'commondir'));
+  if (io.exists(commonDirFile)) {
+    const rawCommonDir = io.readFile(commonDirFile).split(/\r?\n/)[0]?.trim() ?? '';
+    if (rawCommonDir) {
+      const resolvedCommonDir = path.isAbsolute(rawCommonDir)
+        ? rawCommonDir
+        : path.resolve(gitDir, rawCommonDir);
+      return {
+        gitDir,
+        commonDir: normalizeRepoPath(resolvedCommonDir),
+      };
+    }
+  }
+
+  const worktreesDir = path.dirname(gitDir);
+  const commonDir =
+    path.basename(worktreesDir).toLowerCase() === 'worktrees'
+      ? path.dirname(worktreesDir)
+      : gitDir;
+  return { gitDir, commonDir: normalizeRepoPath(commonDir) };
 }
