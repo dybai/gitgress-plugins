@@ -14,6 +14,7 @@ import {
   type CommitsLoadContext,
 } from './shouldReloadCommits';
 import { shouldPostAfterPagination } from './shouldPostAfterPagination';
+import { emptyRepoReason } from './emptyRepoReason';
 import { scanStatusMessage, type ScanStatus } from './scanStatusMessage';
 
 export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
@@ -29,6 +30,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     private readonly selection: SelectionState,
     private readonly gitService: GitService,
     private readonly getScanStatus: () => ScanStatus = () => 'idle',
+    private readonly getIndexedRootCount: () => number = () => 0,
   ) {
     this.controller = new CommitWindowController(gitService);
     this.unsubscribe = selection.subscribe((snapshot) => {
@@ -199,7 +201,11 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     this.lastLoadContext = { repoRoot, branch };
     this.lastLoadedCommitIds.clear();
     if (repoRoot === null) {
-      this.applyMessage({ type: 'empty', reason: 'noRepo' }, version, view);
+      this.applyMessage(
+        { type: 'empty', reason: emptyRepoReason(this.getIndexedRootCount()) },
+        version,
+        view,
+      );
       return;
     }
     if (branch === null || branch === '') {

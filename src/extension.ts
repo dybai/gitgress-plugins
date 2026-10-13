@@ -132,6 +132,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       },
     },
     activeFilePath,
+    workspaceRoots,
     (filePath) =>
       discoverGitRootFromPath(filePath, (candidate) => fs.existsSync(candidate)),
   );
@@ -140,6 +141,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     selection,
     gitService,
     () => index.getScanStatus(),
+    () => index.getRepos().length,
   );
   const filesProvider = new FilesViewProvider(
     context.extensionUri,
