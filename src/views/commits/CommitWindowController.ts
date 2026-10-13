@@ -21,6 +21,7 @@ type CommitWindowGit = Pick<
 export class CommitWindowController {
   private state = createCommitWindow<CommitSummary>();
   private loading = false;
+  private epoch = 0;
 
   constructor(
     private readonly git: CommitWindowGit,
@@ -40,8 +41,11 @@ export class CommitWindowController {
     hasOlder: boolean;
     hasNewer: boolean;
   }> {
+    const epoch = ++this.epoch;
     const batch = await this.git.log(repoRoot, branch, this.pageSize);
-    this.state = replaceFromTip(batch, this.pageSize);
+    if (epoch === this.epoch) {
+      this.state = replaceFromTip(batch, this.pageSize);
+    }
     return this.state;
   }
 
@@ -58,6 +62,7 @@ export class CommitWindowController {
     }
 
     this.loading = true;
+    const epoch = this.epoch;
     try {
       if (this.state.olderPreload) {
         this.state = consumeOlderPreload(
@@ -66,7 +71,9 @@ export class CommitWindowController {
           this.maxPages,
           selectedId,
         );
+        this.epoch += 1;
       } else {
+        const firstId = this.state.loaded[0].id;
         const anchor = this.state.loaded.at(-1)!;
         const batch = await this.git.logOlderThan(
           repoRoot,
@@ -74,6 +81,13 @@ export class CommitWindowController {
           anchor.id,
           this.pageSize,
         );
+        if (
+          epoch !== this.epoch ||
+          this.state.loaded[0]?.id !== firstId ||
+          this.state.loaded.at(-1)?.id !== anchor.id
+        ) {
+          return 'noop';
+        }
         this.state = mergeOlder(
           this.state,
           batch,
@@ -81,6 +95,7 @@ export class CommitWindowController {
           this.maxPages,
           selectedId,
         );
+        this.epoch += 1;
       }
       return 'ok';
     } finally {
@@ -101,6 +116,7 @@ export class CommitWindowController {
     }
 
     this.loading = true;
+    const epoch = this.epoch;
     try {
       if (this.state.newerPreload) {
         this.state = consumeNewerPreload(
@@ -109,14 +125,23 @@ export class CommitWindowController {
           this.maxPages,
           selectedId,
         );
+        this.epoch += 1;
       } else {
         const anchor = this.state.loaded[0];
+        const lastId = this.state.loaded.at(-1)!.id;
         const batch = await this.git.logNewerThan(
           repoRoot,
           branch,
           anchor.id,
           this.pageSize,
         );
+        if (
+          epoch !== this.epoch ||
+          this.state.loaded[0]?.id !== anchor.id ||
+          this.state.loaded.at(-1)?.id !== lastId
+        ) {
+          return 'noop';
+        }
         this.state = mergeNewer(
           this.state,
           batch,
@@ -124,6 +149,7 @@ export class CommitWindowController {
           this.maxPages,
           selectedId,
         );
+        this.epoch += 1;
       }
       return 'ok';
     } finally {
@@ -139,6 +165,8 @@ export class CommitWindowController {
     ) {
       return;
     }
+    const epoch = this.epoch;
+    const firstId = this.state.loaded[0].id;
     const anchor = this.state.loaded.at(-1)!;
     try {
       const batch = await this.git.logOlderThan(
@@ -147,7 +175,15 @@ export class CommitWindowController {
         anchor.id,
         this.pageSize,
       );
+      if (
+        epoch !== this.epoch ||
+        this.state.loaded[0]?.id !== firstId ||
+        this.state.loaded.at(-1)?.id !== anchor.id
+      ) {
+        return;
+      }
       this.state = setOlderPreload(this.state, batch);
+      this.epoch += 1;
     } catch {
       // Preload is speculative; the regular load path can retry.
     }
@@ -161,7 +197,9 @@ export class CommitWindowController {
     ) {
       return;
     }
+    const epoch = this.epoch;
     const anchor = this.state.loaded[0];
+    const lastId = this.state.loaded.at(-1)!.id;
     try {
       const batch = await this.git.logNewerThan(
         repoRoot,
@@ -169,7 +207,15 @@ export class CommitWindowController {
         anchor.id,
         this.pageSize,
       );
+      if (
+        epoch !== this.epoch ||
+        this.state.loaded[0]?.id !== anchor.id ||
+        this.state.loaded.at(-1)?.id !== lastId
+      ) {
+        return;
+      }
       this.state = setNewerPreload(this.state, batch);
+      this.epoch += 1;
     } catch {
       // Preload is speculative; the regular load path can retry.
     }
@@ -180,7 +226,11 @@ export class CommitWindowController {
     branch: string,
     selectedId: string | null,
   ): Promise<{ selectionInvalid: boolean; tip: string | null }> {
+    const epoch = ++this.epoch;
     const tip = await this.git.resolveTip(repoRoot, branch);
+    if (epoch !== this.epoch) {
+      return { selectionInvalid: false, tip };
+    }
     if (selectedId === null) {
       await this.resetFromTip(repoRoot, branch);
       return { selectionInvalid: false, tip };
@@ -191,16 +241,26 @@ export class CommitWindowController {
       branch,
       selectedId,
     );
+    if (epoch !== this.epoch) {
+      return { selectionInvalid: false, tip };
+    }
     if (!selectionIsValid) {
       await this.resetFromTip(repoRoot, branch);
       return { selectionInvalid: true, tip };
     }
 
+    const batch = await this.git.log(repoRoot, selectedId, this.pageSize);
+    if (epoch !== this.epoch) {
+      return { selectionInvalid: false, tip };
+    }
     this.state = {
-      ...this.state,
-      hasNewer: tip !== null && tip !== this.state.loaded[0]?.id,
-      newerPreload: null,
+      ...replaceFromTip(batch, this.pageSize),
+      hasNewer:
+        tip !== null &&
+        tip !== selectedId &&
+        !batch.some(({ id }) => id === tip),
     };
+    this.epoch += 1;
     return { selectionInvalid: false, tip };
   }
 }
