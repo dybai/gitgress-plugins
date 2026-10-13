@@ -2,6 +2,19 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.10
+
+- After the repo index scan finishes, Commits auto-selects a default repository
+  when there is no manual preference and no usable active file: prefer the
+  unique workspace folder that is itself a Git root; otherwise the unique
+  indexed repository. Multi-repo cases with no clear default stay empty until
+  Select Repository.
+- Empty Commits copy distinguishes “no Git repositories in the workspace”
+  from “repositories found but none selected,” and refreshes if the index
+  count changes while nothing is selected.
+- Re-scans clear index authority until idle again, so default selection does
+  not lock a repo mid-scan after workspace folder changes.
+
 ## 1.0.9
 
 - Commits history uses a bidirectional sliding window (max 6 × 100 commits)
