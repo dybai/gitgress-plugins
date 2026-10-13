@@ -158,28 +158,22 @@ export class GitService {
   /** Commits older than `commitId` (exclusive), in the same order as log(). */
   async logOlderThan(
     repoRoot: string,
-    _branch: string,
+    branch: string,
     commitId: string,
     limit: number,
   ): Promise<CommitSummary[]> {
     if (!Number.isInteger(limit) || limit <= 0) {
       throw new RangeError('Git log limit must be a positive integer');
     }
-    const { stdout } = await this.runGit(repoRoot, [
-      'log',
-      '-n',
-      String(limit + 1),
-      '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
-      '--numstat',
-      '--no-renames',
-      '--date-order',
-      '--end-of-options',
-      commitId,
-      '--',
-    ]);
-    const commits = parseLog(stdout);
-    const withoutAnchor = commits[0]?.id === commitId ? commits.slice(1) : commits;
-    return withoutAnchor.slice(0, limit);
+    const commitIds = await this.branchCommitIds(repoRoot, branch);
+    const anchorIndex = commitIds.indexOf(commitId);
+    if (anchorIndex < 0) {
+      return [];
+    }
+    return this.materializeCommits(
+      repoRoot,
+      commitIds.slice(anchorIndex + 1, anchorIndex + 1 + limit),
+    );
   }
 
   /** Commits newer than `commitId` toward `branch` tip, in the same order as log(). */
@@ -192,21 +186,35 @@ export class GitService {
     if (!Number.isInteger(limit) || limit <= 0) {
       throw new RangeError('Git log limit must be a positive integer');
     }
-    const { stdout: revListStdout } = await this.runGit(repoRoot, [
+    const commitIds = await this.branchCommitIds(repoRoot, branch);
+    const anchorIndex = commitIds.indexOf(commitId);
+    if (anchorIndex < 0) {
+      return [];
+    }
+    return this.materializeCommits(
+      repoRoot,
+      commitIds.slice(Math.max(0, anchorIndex - limit), anchorIndex),
+    );
+  }
+
+  private async branchCommitIds(repoRoot: string, branch: string): Promise<string[]> {
+    const { stdout } = await this.runGit(repoRoot, [
       'rev-list',
       '--date-order',
-      '--not',
-      commitId,
-      '--not',
       '--end-of-options',
       branch,
       '--',
     ]);
-    const commitIds = revListStdout
+    return stdout
       .split(/\r?\n/)
       .map((id) => id.trim())
-      .filter((id) => id !== '')
-      .slice(-limit);
+      .filter((id) => id !== '');
+  }
+
+  private async materializeCommits(
+    repoRoot: string,
+    commitIds: string[],
+  ): Promise<CommitSummary[]> {
     if (commitIds.length === 0) {
       return [];
     }
@@ -217,6 +225,7 @@ export class GitService {
       '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
       '--numstat',
       '--no-renames',
+      '--date-order',
       '--end-of-options',
       ...commitIds,
       '--',

@@ -179,31 +179,41 @@ describe('GitService', () => {
   it('logs through an anchor and excludes that anchor from the older page', async () => {
     const stdout =
       [
-        ['anchor', 'parent', 'anchor subject', 'Ann', '2024-01-02T00:00:00Z', 'anchor body\n'],
         ['older', '', 'older subject', 'Bob', '2024-01-01T00:00:00Z', 'older body\n'],
       ]
         .map((fields) => `${fields.join('\x1f')}\x1d\n\x1e`)
         .join('');
-    const runGit = vi.fn<RunGit>(async () => ({ stdout, stderr: '' }));
+    const runGit = vi.fn<RunGit>(async (_cwd, args) => {
+      if (args[0] === 'rev-list') {
+        return { stdout: 'tip\nanchor\nolder\n', stderr: '' };
+      }
+      return { stdout, stderr: '' };
+    });
 
     await expect(
       new GitService(runGit).logOlderThan('/repo', 'main', 'anchor', 1),
     ).resolves.toMatchObject([{ id: 'older' }]);
-    expect(runGit).toHaveBeenCalledWith('/repo', [
+    expect(runGit).toHaveBeenNthCalledWith(1, '/repo', [
+      'rev-list',
+      '--date-order',
+      '--end-of-options',
+      'main',
+      '--',
+    ]);
+    expect(runGit).toHaveBeenNthCalledWith(2, '/repo', [
       'log',
-      '-n',
-      '2',
+      '--no-walk=unsorted',
       '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
       '--numstat',
       '--no-renames',
       '--date-order',
       '--end-of-options',
-      'anchor',
+      'older',
       '--',
     ]);
   });
 
-  it('logs the commits immediately newer than an anchor in newest-first order', async () => {
+  it('logs commits immediately newer than an anchor in newest-first order', async () => {
     const hashes = Array.from({ length: 8 }, (_, index) => `hash-${index + 1}`);
     const logStdout = hashes
       .slice(-3)
@@ -221,7 +231,7 @@ describe('GitService', () => {
       .join('');
     const runGit = vi.fn<RunGit>(async (_cwd, args) => {
       if (args[0] === 'rev-list') {
-        return { stdout: `${hashes.join('\n')}\n`, stderr: '' };
+        return { stdout: `${[...hashes, 'anchor', 'older'].join('\n')}\n`, stderr: '' };
       }
       return { stdout: logStdout, stderr: '' };
     });
@@ -233,9 +243,6 @@ describe('GitService', () => {
     expect(runGit).toHaveBeenNthCalledWith(1, '/repo', [
       'rev-list',
       '--date-order',
-      '--not',
-      'anchor',
-      '--not',
       '--end-of-options',
       'main',
       '--',
@@ -246,6 +253,7 @@ describe('GitService', () => {
       '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
       '--numstat',
       '--no-renames',
+      '--date-order',
       '--end-of-options',
       'hash-6',
       'hash-7',

@@ -116,6 +116,7 @@ describe('CommitWindowController', () => {
     vi.mocked(git.log)
       .mockResolvedValueOnce([commit('c'), commit('d')])
       .mockResolvedValueOnce([commit('c'), commit('d')]);
+    vi.mocked(git.logOlderThan).mockResolvedValue([commit('d')]);
     vi.mocked(git.resolveTip).mockResolvedValue('a');
     vi.mocked(git.logNewerThan).mockResolvedValue([commit('a'), commit('b')]);
     const controller = new CommitWindowController(git, 2, 3);
@@ -138,6 +139,7 @@ describe('CommitWindowController', () => {
     vi.mocked(git.log)
       .mockResolvedValueOnce([commit('c'), commit('d')])
       .mockResolvedValueOnce([commit('c'), commit('d')]);
+    vi.mocked(git.logOlderThan).mockResolvedValue([commit('d')]);
     vi.mocked(git.resolveTip).mockResolvedValue('a');
     vi.mocked(git.logNewerThan).mockResolvedValue([commit('a'), commit('b')]);
     const controller = new CommitWindowController(git, 2, 3);
@@ -194,7 +196,8 @@ describe('CommitWindowController', () => {
     const git = createGit();
     vi.mocked(git.log)
       .mockResolvedValueOnce([commit('rewritten'), commit('selected')])
-      .mockResolvedValueOnce([commit('selected'), commit('older')]);
+      .mockResolvedValueOnce([commit('selected')]);
+    vi.mocked(git.logOlderThan).mockResolvedValue([commit('older')]);
     vi.mocked(git.resolveTip).mockResolvedValue('new-tip');
     const controller = new CommitWindowController(git, 2, 3);
     await controller.resetFromTip('/repo', 'main');
@@ -205,7 +208,8 @@ describe('CommitWindowController', () => {
     ).resolves.toEqual({ selectionInvalid: false, tip: 'new-tip' });
 
     expect(git.isCommitOnBranch).toHaveBeenCalledWith('/repo', 'main', 'selected');
-    expect(git.log).toHaveBeenCalledWith('/repo', 'selected', 2);
+    expect(git.log).toHaveBeenCalledWith('/repo', 'selected', 1);
+    expect(git.logOlderThan).toHaveBeenCalledWith('/repo', 'main', 'selected', 1);
     expect(git.logNewerThan).not.toHaveBeenCalled();
     expect(controller.getState().loaded.map(({ id }) => id)).toEqual([
       'selected',
@@ -323,7 +327,9 @@ describe('CommitWindowController', () => {
       .mockResolvedValueOnce([commit('c'), commit('d')])
       .mockResolvedValueOnce([commit('c'), commit('d')]);
     vi.mocked(git.resolveTip).mockResolvedValue('a');
-    vi.mocked(git.logOlderThan).mockReturnValue(older.promise);
+    vi.mocked(git.logOlderThan)
+      .mockResolvedValueOnce([commit('d')])
+      .mockReturnValueOnce(older.promise);
     vi.mocked(git.logNewerThan).mockReturnValue(newer.promise);
     const controller = new CommitWindowController(git, 2, 3);
     await controller.resetFromTip('/repo', 'main');
@@ -355,7 +361,9 @@ describe('CommitWindowController', () => {
       .mockResolvedValueOnce([commit('old-tip'), commit('selected')])
       .mockResolvedValueOnce([commit('selected'), commit('rewritten-older')]);
     vi.mocked(git.resolveTip).mockReturnValue(tip.promise);
-    vi.mocked(git.logOlderThan).mockResolvedValue([commit('old-older')]);
+    vi.mocked(git.logOlderThan)
+      .mockResolvedValueOnce([commit('old-older')])
+      .mockResolvedValueOnce([commit('rewritten-older')]);
     const controller = new CommitWindowController(git, 2, 3);
     await controller.resetFromTip('/repo', 'main');
 

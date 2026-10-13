@@ -28,13 +28,16 @@ describe('commitWindow', () => {
     expect(w.hasNewer).toBe(true);
   });
 
-  it('mergeOlder does not evict when selected would leave the window', () => {
+  it('mergeOlder leaves state unchanged when selection blocks cap eviction', () => {
     let w = replaceFromTip(ids('a', 'b'), 2);
     w = mergeOlder(w, ids('c', 'd'), 2, 3, 'a');
     w = mergeOlder(w, ids('e', 'f'), 2, 3, 'a');
+    const beforeBlockedMerge = w;
+
     w = mergeOlder(w, ids('g', 'h'), 2, 3, 'a');
-    expect(w.loaded.map((c) => c.id)).toContain('a');
-    expect(w.loaded.length).toBeGreaterThan(6); // retention over cap allowed when protecting selection
+
+    expect(w).toBe(beforeBlockedMerge);
+    expect(w.loaded.map((c) => c.id)).toEqual(['a', 'b', 'c', 'd', 'e', 'f']);
   });
 
   it('mergeNewer prepends and may evict older end', () => {
@@ -42,6 +45,19 @@ describe('commitWindow', () => {
     w = { ...w, hasNewer: true };
     w = mergeNewer(w, ids('a', 'b'), 2, 3, null);
     expect(w.loaded.map((c) => c.id).slice(0, 2)).toEqual(['a', 'b']);
+  });
+
+  it('mergeNewer leaves state unchanged when selection blocks cap eviction', () => {
+    let w = replaceFromTip(ids('e', 'f'), 2);
+    w = mergeOlder(w, ids('g', 'h'), 2, 3, null);
+    w = mergeOlder(w, ids('i', 'j'), 2, 3, null);
+    w = { ...w, hasNewer: true };
+    const beforeBlockedMerge = w;
+
+    w = mergeNewer(w, ids('c', 'd'), 2, 3, 'i');
+
+    expect(w).toBe(beforeBlockedMerge);
+    expect(w.loaded.map((c) => c.id)).toEqual(['e', 'f', 'g', 'h', 'i', 'j']);
   });
 
   it('consumeOlderPreload merges buffer', () => {

@@ -36,10 +36,6 @@ export function replaceFromTip<T extends { id: string }>(
   };
 }
 
-/**
- * When selection protection prevents eviction, `loaded.length` may exceed
- * `maxPages * pageSize` until selection moves — matches spec “never evict selected”.
- */
 function evictFromNewerEnd<T extends { id: string }>(
   loaded: T[],
   maxLen: number,
@@ -80,7 +76,7 @@ function evictFromOlderEnd<T extends { id: string }>(
 
 /**
  * Append older page at end. If loaded.length > maxPages*pageSize, evict from start
- * unless eviction would remove selectedId — then skip eviction and keep hasNewer as-is.
+ * unless eviction would remove selectedId — then reject the merge unchanged.
  * hasOlder = batch.length === pageSize.
  */
 export function mergeOlder<T extends { id: string }>(
@@ -98,6 +94,9 @@ export function mergeOlder<T extends { id: string }>(
     pageSize,
     selectedId,
   );
+  if (trimmed.length > maxLen) {
+    return state;
+  }
   loaded = trimmed;
   return {
     ...state,
@@ -124,6 +123,9 @@ export function mergeNewer<T extends { id: string }>(
     pageSize,
     selectedId,
   );
+  if (trimmed.length > maxLen) {
+    return state;
+  }
   loaded = trimmed;
   return {
     ...state,

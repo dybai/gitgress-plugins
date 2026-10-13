@@ -267,10 +267,23 @@ export class CommitWindowController {
       return { selectionInvalid: true, tip };
     }
 
-    const batch = await this.git.log(repoRoot, selectedId, this.pageSize);
+    const selectedBatch = await this.git.log(repoRoot, selectedId, 1);
     if (epoch !== this.epoch) {
       return { selectionInvalid: false, tip, superseded: true };
     }
+    const olderBatch =
+      this.pageSize > 1
+        ? await this.git.logOlderThan(
+            repoRoot,
+            branch,
+            selectedId,
+            this.pageSize - 1,
+          )
+        : [];
+    if (epoch !== this.epoch) {
+      return { selectionInvalid: false, tip, superseded: true };
+    }
+    const batch = [...selectedBatch.slice(0, 1), ...olderBatch];
     this.state = {
       ...replaceFromTip(batch, this.pageSize),
       hasNewer:
