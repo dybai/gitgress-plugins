@@ -42,7 +42,7 @@ export type HostToWebview =
       tipCommitIds: string[];
       selectedCommitId?: string | null;
     }
-  | { type: 'empty'; reason: 'noRepo' | 'noCommits' | 'error'; message?: string }
+  | { type: 'empty'; reason: 'noRepo' | 'noCommits' | 'error' | 'noSelection'; message?: string }
   | { type: 'selectionCleared' }
   | { type: 'scanStatus'; status: 'idle' | 'scanning' };
 
@@ -132,7 +132,12 @@ export function isHostMessage(value: unknown): value is HostToWebview {
       );
     case 'empty': {
       const reason = value.reason;
-      if (reason !== 'noRepo' && reason !== 'noCommits' && reason !== 'error') {
+      if (
+        reason !== 'noRepo' &&
+        reason !== 'noCommits' &&
+        reason !== 'error' &&
+        reason !== 'noSelection'
+      ) {
         return false;
       }
       return value.message === undefined || typeof value.message === 'string';

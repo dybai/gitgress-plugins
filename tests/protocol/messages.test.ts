@@ -143,6 +143,18 @@ describe('isHostMessage', () => {
   it('rejects scanStatus with invalid status', () => {
     expect(isHostMessage({ type: 'scanStatus', status: 'done' })).toBe(false);
   });
+
+  it('accepts empty with noSelection', () => {
+    expect(isHostMessage({ type: 'empty', reason: 'noSelection' })).toBe(true);
+  });
+
+  it('accepts empty with noRepo', () => {
+    expect(isHostMessage({ type: 'empty', reason: 'noRepo' })).toBe(true);
+  });
+
+  it('rejects empty with unknown reason', () => {
+    expect(isHostMessage({ type: 'empty', reason: 'noFolder' })).toBe(false);
+  });
 });
 
 describe('isWebviewToHost', () => {
