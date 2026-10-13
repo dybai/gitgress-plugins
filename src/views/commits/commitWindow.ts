@@ -104,6 +104,7 @@ export function mergeOlder<T extends { id: string }>(
     loaded,
     hasOlder: batch.length === pageSize,
     hasNewer: didEvict ? true : state.hasNewer,
+    newerPreload: didEvict ? null : state.newerPreload,
   };
 }
 
@@ -129,6 +130,7 @@ export function mergeNewer<T extends { id: string }>(
     loaded,
     hasNewer: batch.length === pageSize,
     hasOlder: didEvict ? true : state.hasOlder,
+    olderPreload: didEvict ? null : state.olderPreload,
   };
 }
 

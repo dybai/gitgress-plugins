@@ -5,6 +5,7 @@ import {
   mergeNewer,
   replaceFromTip,
   setOlderPreload,
+  setNewerPreload,
   consumeOlderPreload,
 } from '../../../src/views/commits/commitWindow';
 
@@ -49,5 +50,34 @@ describe('commitWindow', () => {
     w = consumeOlderPreload(w, 2, 3, null);
     expect(w.loaded.map((c) => c.id)).toEqual(['a', 'b', 'c', 'd']);
     expect(w.olderPreload).toBeNull();
+  });
+
+  it('mergeOlder eviction clears newerPreload', () => {
+    let w = replaceFromTip(ids('a', 'b'), 2);
+    w = mergeOlder(w, ids('c', 'd'), 2, 3, null);
+    w = mergeOlder(w, ids('e', 'f'), 2, 3, null);
+    w = setNewerPreload(w, ids('x', 'y'));
+    w = mergeOlder(w, ids('g', 'h'), 2, 3, null);
+    expect(w.newerPreload).toBeNull();
+  });
+
+  it('mergeNewer eviction clears olderPreload', () => {
+    let w = replaceFromTip(ids('e', 'f'), 2);
+    w = { ...w, hasNewer: true };
+    w = mergeNewer(w, ids('c', 'd'), 2, 3, null);
+    w = mergeNewer(w, ids('a', 'b'), 2, 3, null);
+    w = setOlderPreload(w, ids('x', 'y'));
+    w = mergeNewer(w, ids('-2', '-1'), 2, 3, null);
+    expect(w.olderPreload).toBeNull();
+  });
+
+  it('mergeNewer over cap sets hasOlder true', () => {
+    let w = replaceFromTip(ids('e', 'f'), 2);
+    w = mergeOlder(w, ids('g', 'h'), 2, 3, null);
+    w = mergeOlder(w, ids('i', 'j'), 2, 3, null);
+    w = { ...w, hasNewer: true };
+    w = mergeNewer(w, ids('c', 'd'), 2, 3, null);
+    w = mergeNewer(w, ids('a', 'b'), 2, 3, null);
+    expect(w.hasOlder).toBe(true);
   });
 });
