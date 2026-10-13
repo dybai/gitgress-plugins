@@ -69,6 +69,33 @@ Before publishing, ensure the release is ready: version bump, `CHANGELOG.md`, ic
 5. **Open VSX:** run `npx ovsx publish gitgress-1.0.0.vsix -p <token>`.
 6. Spot-check both marketplace listings.
 
+## Commits history: pagination and refresh
+
+Commits loads history in pages (`PAGE_SIZE` 100). The extension keeps a
+**bidirectional sliding window** in memory instead of an unbounded append-only
+list:
+
+- At most **6 pages** (~600 commits) stay loaded at once. Scrolling toward
+  older history (`loadMore`) or toward the tip (`loadNewer`) fetches one page
+  at a time; when the window would exceed six pages, commits drop from the
+  opposite end (the page containing the selected commit is not evicted).
+- When you approach the top or bottom edge, the host **preloads one adjacent
+  page** asynchronously so the next scroll feels immediate; preload failure is
+  ignored.
+
+**Manual Refresh** (`gitgress.refresh`, view title) means “show me the latest”:
+it resets the window **from the tip**, keeps existing repository-index rescan
+behavior, and reloads branch/history for the current repo. That can discard a
+deep scroll position in long histories. Branch switch uses the same “reload from
+tip” semantics.
+
+**Auto-refresh** (Phase 2: local Git history watcher) is **not** the same as
+manual Refresh. When history changes outside an explicit Refresh, the host
+reconciles the current window: if the selected commit still exists, selection
+(and the **Files** panel) stay unchanged; new commits above the window surface
+as `hasNewer` rather than loading the entire tip into memory. Files behavior
+is unchanged in Phase 1 until the watcher ships.
+
 ## Manual acceptance checklist
 
 Run these checks in an Extension Development Host (e.g. open a repo with merge
@@ -94,10 +121,12 @@ history such as `fintech-service`):
 ### Commits and repository
 
 - [ ] Merge forks are visible in the commit graph (multi-lane layout).
-- [ ] Scrolling down loads more commits until no further pages remain.
+- [ ] Scrolling toward older or newer history loads pages (sliding window, max
+      6 in memory) until no further pages remain in that direction.
 - [ ] Hover overlay follows the row without layout jump and shows no avatar.
 - [ ] With a commit selected, Arrow/Home/End/PageUp/PageDown move selection and sync Files (no list scroll).
-- [ ] Branch switch or refresh clears pagination and reloads from HEAD.
+- [ ] Branch switch or manual **Refresh** resets the window from tip and
+      reloads from HEAD (deep scroll may be lost).
 - [ ] Commit hover content includes the complete specified fields.
 - [ ] Commits still works (graph, scroll, hover) from bundled assets.
 - [ ] A non-Git workspace shows a friendly empty state.
