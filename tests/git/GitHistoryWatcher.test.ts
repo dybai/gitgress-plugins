@@ -47,6 +47,21 @@ const target = (
 
 const gitLayout = (gitDir: string) => ({ gitDir, commonDir: gitDir });
 
+function watcherDeps(
+  overrides: Partial<GitHistoryWatcherDeps>,
+): GitHistoryWatcherDeps {
+  return {
+    debounceMs: 1500,
+    resolveGitDir: () => gitLayout('/repo/.git'),
+    createWatcher: vi.fn(),
+    readTip: vi.fn().mockResolvedValue('tip-a'),
+    readTipsFingerprint: vi.fn().mockResolvedValue('fp-a'),
+    setTimeout,
+    clearTimeout,
+    ...overrides,
+  };
+}
+
 describe('GitHistoryWatcher', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -66,14 +81,11 @@ describe('GitHistoryWatcher', () => {
     const readTip = vi.fn().mockResolvedValue('tip-a');
     const onChanged = vi.fn();
     const watcher = new GitHistoryWatcher(
-      {
-        debounceMs: 1500,
+      watcherDeps({
         resolveGitDir: (repoRoot) => gitLayout(`${repoRoot}/.git`),
         createWatcher,
         readTip,
-        setTimeout,
-        clearTimeout,
-      },
+      }),
       onChanged,
     );
 
@@ -98,14 +110,10 @@ describe('GitHistoryWatcher', () => {
     const readTip = vi.fn().mockResolvedValueOnce('tip-a').mockResolvedValueOnce('tip-b');
     const onChanged = vi.fn();
     const watcher = new GitHistoryWatcher(
-      {
-        debounceMs: 1500,
-        resolveGitDir: () => gitLayout('/repo/.git'),
+      watcherDeps({
         createWatcher: () => harness.watcher,
         readTip,
-        setTimeout,
-        clearTimeout,
-      },
+      }),
       onChanged,
     );
     const watchTarget = target('/repo', 1);
@@ -121,7 +129,32 @@ describe('GitHistoryWatcher', () => {
 
     expect(readTip).toHaveBeenCalledTimes(2);
     expect(onChanged).toHaveBeenCalledOnce();
-    expect(onChanged).toHaveBeenCalledWith(watchTarget);
+    expect(onChanged).toHaveBeenCalledWith(watchTarget, 'branchTip');
+  });
+
+  it('notifies tipsOnly when remote tip refs change but the branch tip does not', async () => {
+    const harness = createWatcherHarness();
+    const onChanged = vi.fn();
+    const watcher = new GitHistoryWatcher(
+      watcherDeps({
+        createWatcher: () => harness.watcher,
+        readTip: vi.fn().mockResolvedValue('tip-a'),
+        readTipsFingerprint: vi
+          .fn()
+          .mockResolvedValueOnce('fp-a')
+          .mockResolvedValueOnce('fp-b'),
+      }),
+      onChanged,
+    );
+    const watchTarget = target('/repo', 1);
+
+    watcher.retarget(watchTarget);
+    await vi.runAllTicks();
+    harness.fire();
+    await vi.advanceTimersByTimeAsync(1500);
+
+    expect(onChanged).toHaveBeenCalledOnce();
+    expect(onChanged).toHaveBeenCalledWith(watchTarget, 'tipsOnly');
   });
 
   it('keeps a pending debounce when retargeted to the same watch identity', async () => {
@@ -130,14 +163,10 @@ describe('GitHistoryWatcher', () => {
     const onChanged = vi.fn();
     const createWatcher = vi.fn(() => harness.watcher);
     const watcher = new GitHistoryWatcher(
-      {
-        debounceMs: 1500,
-        resolveGitDir: () => gitLayout('/repo/.git'),
+      watcherDeps({
         createWatcher,
         readTip,
-        setTimeout,
-        clearTimeout,
-      },
+      }),
       onChanged,
     );
     const watchTarget = target('/repo', 1);
@@ -153,7 +182,7 @@ describe('GitHistoryWatcher', () => {
     expect(harness.watcherDispose).not.toHaveBeenCalled();
     expect(readTip).toHaveBeenCalledTimes(2);
     expect(onChanged).toHaveBeenCalledOnce();
-    expect(onChanged).toHaveBeenCalledWith(watchTarget);
+    expect(onChanged).toHaveBeenCalledWith(watchTarget, 'branchTip');
   });
 
   it('ignores a debounce completion from a stale generation after retarget', async () => {
@@ -170,17 +199,14 @@ describe('GitHistoryWatcher', () => {
       .mockResolvedValueOnce('tip-b');
     const onChanged = vi.fn();
     const watcher = new GitHistoryWatcher(
-      {
-        debounceMs: 1500,
+      watcherDeps({
         resolveGitDir: (repoRoot) => gitLayout(`${repoRoot}/.git`),
         createWatcher: vi
           .fn<GitHistoryWatcherDeps['createWatcher']>()
           .mockReturnValueOnce(first.watcher)
           .mockReturnValueOnce(second.watcher),
         readTip,
-        setTimeout,
-        clearTimeout,
-      },
+      }),
       onChanged,
     );
 
@@ -201,14 +227,10 @@ describe('GitHistoryWatcher', () => {
     const readTip = vi.fn().mockResolvedValue('tip-a');
     const onChanged = vi.fn();
     const watcher = new GitHistoryWatcher(
-      {
-        debounceMs: 1500,
-        resolveGitDir: () => gitLayout('/repo/.git'),
+      watcherDeps({
         createWatcher: () => harness.watcher,
         readTip,
-        setTimeout,
-        clearTimeout,
-      },
+      }),
       onChanged,
     );
 
@@ -230,14 +252,10 @@ describe('GitHistoryWatcher', () => {
       .mockResolvedValueOnce('tip-a');
     const onChanged = vi.fn();
     const watcher = new GitHistoryWatcher(
-      {
-        debounceMs: 1500,
-        resolveGitDir: () => gitLayout('/repo/.git'),
+      watcherDeps({
         createWatcher: () => harness.watcher,
         readTip,
-        setTimeout,
-        clearTimeout,
-      },
+      }),
       onChanged,
     );
 
@@ -254,14 +272,11 @@ describe('GitHistoryWatcher', () => {
   it('stays idle when detached or when the git directory cannot be resolved', () => {
     const createWatcher = vi.fn();
     const watcher = new GitHistoryWatcher(
-      {
-        debounceMs: 1500,
+      watcherDeps({
         resolveGitDir: () => null,
         createWatcher,
         readTip: vi.fn(),
-        setTimeout,
-        clearTimeout,
-      },
+      }),
       vi.fn(),
     );
 
@@ -275,16 +290,13 @@ describe('GitHistoryWatcher', () => {
     const createWatcher = vi.fn();
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const watcher = new GitHistoryWatcher(
-      {
-        debounceMs: 1500,
+      watcherDeps({
         resolveGitDir: () => {
           throw new Error('EACCES');
         },
         createWatcher,
         readTip: vi.fn(),
-        setTimeout,
-        clearTimeout,
-      },
+      }),
       vi.fn(),
     );
 
@@ -298,16 +310,12 @@ describe('GitHistoryWatcher', () => {
   it('warns and stays idle when watcher creation throws', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const watcher = new GitHistoryWatcher(
-      {
-        debounceMs: 1500,
-        resolveGitDir: () => gitLayout('/repo/.git'),
+      watcherDeps({
         createWatcher: () => {
           throw new Error('watch unavailable');
         },
         readTip: vi.fn(),
-        setTimeout,
-        clearTimeout,
-      },
+      }),
       vi.fn(),
     );
 

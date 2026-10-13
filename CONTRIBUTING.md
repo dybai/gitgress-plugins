@@ -89,12 +89,13 @@ behavior, and reloads branch/history for the current repo. That can discard a
 deep scroll position in long histories. Branch switch uses the same “reload from
 tip” semantics.
 
-**Auto-refresh** (Phase 2: local Git history watcher) is **not** the same as
-manual Refresh. When history changes outside an explicit Refresh, the host
-reconciles the current window: if the selected commit still exists, selection
-(and the **Files** panel) stay unchanged; new commits above the window surface
-as `hasNewer` rather than loading the entire tip into memory. Files behavior
-is unchanged in Phase 1 until the watcher ships.
+**Auto-refresh** (Git history watcher) is **not** the same as manual Refresh.
+The watcher covers the selected repo’s `gitdir` including `refs/remotes/**`.
+After ~1.5s quiet: if the **display-branch tip** changed, reconcile the window
+(selection and **Files** stay put when the selected commit still exists; newer
+commits above the window show as `hasNewer`). If only **remote-tracking tips**
+moved (e.g. `git push` / `fetch`), refresh tip pills only—no window rebuild.
+Missed events are OK; use Refresh.
 
 ## Manual acceptance checklist
 

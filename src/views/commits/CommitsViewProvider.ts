@@ -110,6 +110,32 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
   }
 
   /**
+   * Remote-tracking tips moved but the display-branch tip did not.
+   * Re-post the current window with fresh tip pills; do not touch selection or Files.
+   */
+  async refreshTipsOnly(): Promise<void> {
+    const view = this.view;
+    const snapshot = this.selection.getSnapshot();
+    const { repoRoot, branch } = snapshot;
+    if (
+      view === undefined ||
+      repoRoot === null ||
+      branch === null ||
+      branch === '' ||
+      this.controller.getState().loaded.length === 0
+    ) {
+      return;
+    }
+
+    const version = ++this.loadVersion;
+    try {
+      await this.postWindow(snapshot, version, view);
+    } catch {
+      // Leave the current pills visible; a later event or manual refresh can retry.
+    }
+  }
+
+  /**
    * Push the current repo-index scan status to the webview so it can toggle
    * the indeterminate progress bar. Does not touch commit load state
    * ({@link loadVersion}) or pagination.

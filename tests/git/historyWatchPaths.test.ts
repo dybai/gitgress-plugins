@@ -12,6 +12,7 @@ describe('gitHistoryWatchPaths', () => {
       { base: 'd:/main/.git/worktrees/feature', pattern: 'HEAD' },
       { base: 'd:/main/.git', pattern: 'packed-refs' },
       { base: 'd:/main/.git', pattern: 'refs/heads/**' },
+      { base: 'd:/main/.git', pattern: 'refs/remotes/**' },
     ]);
   });
 });

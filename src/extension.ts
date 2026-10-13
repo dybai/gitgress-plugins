@@ -19,6 +19,7 @@ import { GitService } from './git/GitService';
 import { gitHistoryWatchPaths } from './git/historyWatchPaths';
 import { resolveGitDir, type GitDirectoryLayout } from './git/resolveGitDir';
 import { createRunGit } from './git/runGit';
+import { tipsFingerprint } from './git/tipsFingerprint';
 import { discoverGitRootFromPath } from './repoIndex/discoverGitRootFromPath';
 import { createNodeScanFs } from './repoIndex/nodeScanFs';
 import { RepoIndexService, type ScanStatus } from './repoIndex/RepoIndexService';
@@ -158,10 +159,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }),
       createWatcher: createGitHistoryFileWatcher,
       readTip: (repoRoot, branch) => gitService.resolveTip(repoRoot, branch),
+      readTipsFingerprint: async (repoRoot) =>
+        tipsFingerprint(await gitService.listTips(repoRoot)),
       setTimeout,
       clearTimeout,
     },
-    () => {
+    (_target, kind) => {
+      if (kind === 'tipsOnly') {
+        void commitsProvider.refreshTipsOnly();
+        return;
+      }
       void commitsProvider.reconcileFromHistory();
     },
   );

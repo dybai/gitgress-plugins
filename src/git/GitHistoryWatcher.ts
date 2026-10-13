@@ -6,6 +6,8 @@ export type HistoryWatchTarget = {
   branch: string | null;
 };
 
+export type HistoryChangeKind = 'branchTip' | 'tipsOnly';
+
 type Disposable = {
   dispose(): void;
 };
@@ -21,6 +23,8 @@ export type GitHistoryWatcherDeps = {
   resolveGitDir: (repoRoot: string) => GitDirectoryLayout | null;
   createWatcher: (layout: GitDirectoryLayout) => HistoryFileWatcher;
   readTip: (repoRoot: string, branch: string) => Promise<string | null>;
+  /** Fingerprint of local+remote tip refs (e.g. from listTips). */
+  readTipsFingerprint: (repoRoot: string) => Promise<string>;
   setTimeout: typeof setTimeout;
   clearTimeout: typeof clearTimeout;
 };
@@ -32,11 +36,15 @@ export class GitHistoryWatcher {
   private watcherDisposables: Disposable[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
   private lastTip: string | null = null;
+  private lastTipsFingerprint: string | null = null;
   private initialRead: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly deps: GitHistoryWatcherDeps,
-    private readonly onChanged: (target: HistoryWatchTarget) => void,
+    private readonly onChanged: (
+      target: HistoryWatchTarget,
+      kind: HistoryChangeKind,
+    ) => void,
   ) {}
 
   retarget(target: HistoryWatchTarget | null): void {
@@ -47,6 +55,7 @@ export class GitHistoryWatcher {
     this.detach();
     const generation = ++this.generation;
     this.lastTip = null;
+    this.lastTipsFingerprint = null;
     this.initialRead = Promise.resolve();
 
     if (target === null) {
@@ -79,7 +88,7 @@ export class GitHistoryWatcher {
     this.target = target;
 
     if (target.branch !== null) {
-      this.initialRead = this.recordInitialTip(target, generation);
+      this.initialRead = this.recordInitialSnapshot(target, generation);
     }
   }
 
@@ -88,14 +97,18 @@ export class GitHistoryWatcher {
     ++this.generation;
   }
 
-  private async recordInitialTip(
+  private async recordInitialSnapshot(
     target: HistoryWatchTarget,
     generation: number,
   ): Promise<void> {
     try {
-      const tip = await this.deps.readTip(target.repoRoot, target.branch!);
+      const [tip, fingerprint] = await Promise.all([
+        this.deps.readTip(target.repoRoot, target.branch!),
+        this.deps.readTipsFingerprint(target.repoRoot),
+      ]);
       if (generation === this.generation) {
         this.lastTip = tip;
+        this.lastTipsFingerprint = fingerprint;
       }
     } catch {
       // A temporarily unavailable tip is handled by a later file event.
@@ -123,13 +136,29 @@ export class GitHistoryWatcher {
     }
 
     try {
-      const tip = await this.deps.readTip(target.repoRoot, target.branch);
-      if (generation !== this.generation || tip === null || tip === this.lastTip) {
+      const [tip, fingerprint] = await Promise.all([
+        this.deps.readTip(target.repoRoot, target.branch),
+        this.deps.readTipsFingerprint(target.repoRoot),
+      ]);
+      if (generation !== this.generation) {
         return;
       }
 
-      this.lastTip = tip;
-      this.onChanged(target);
+      const tipChanged = tip !== null && tip !== this.lastTip;
+      const tipsChanged = fingerprint !== this.lastTipsFingerprint;
+
+      if (!tipChanged && !tipsChanged) {
+        return;
+      }
+
+      if (tipChanged) {
+        this.lastTip = tip;
+      }
+      if (tipsChanged) {
+        this.lastTipsFingerprint = fingerprint;
+      }
+
+      this.onChanged(target, tipChanged ? 'branchTip' : 'tipsOnly');
     } catch {
       // Keep watching; subsequent git file events will retry the tip read.
     }
