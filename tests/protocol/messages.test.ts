@@ -34,6 +34,7 @@ function validCommitsLoaded(overrides: Record<string, unknown> = {}) {
     edges: [validEdge],
     laneCount: 2,
     hasMore: false,
+    hasNewer: false,
     mode: 'replace' as const,
     repoRoot: '/repo',
     headCommitId: 'abc',
@@ -69,6 +70,15 @@ describe('isHostMessage', () => {
   it('rejects commitsLoaded when hasMore is missing', () => {
     const { hasMore: _, ...withoutHasMore } = validCommitsLoaded();
     expect(isHostMessage(withoutHasMore)).toBe(false);
+  });
+
+  it('rejects commitsLoaded when hasNewer is missing', () => {
+    const { hasNewer: _, ...rest } = validCommitsLoaded({ hasNewer: true });
+    expect(isHostMessage(rest)).toBe(false);
+  });
+
+  it('accepts commitsLoaded with hasNewer false', () => {
+    expect(isHostMessage(validCommitsLoaded({ hasNewer: false }))).toBe(true);
   });
 
   it('rejects commitsLoaded with invalid mode', () => {
@@ -150,6 +160,10 @@ describe('isWebviewToHost', () => {
 
   it('accepts loadMore', () => {
     expect(isWebviewToHost({ type: 'loadMore' })).toBe(true);
+  });
+
+  it('accepts loadNewer from webview', () => {
+    expect(isWebviewToHost({ type: 'loadNewer' })).toBe(true);
   });
 
   it('accepts selectRepository from webview', () => {

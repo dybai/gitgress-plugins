@@ -15,6 +15,7 @@ export function buildCommitsPayload(
   repoRoot: string,
   headCommitId: string,
   tips: readonly TipRef[] = [],
+  hasNewer = false,
 ): Extract<HostToWebview, { type: 'commitsLoaded' }> {
   const layout = layoutCommitGraph(rows);
   const { refsById, tipCommitIds } = attachCommitRefs(
@@ -39,6 +40,7 @@ export function buildCommitsPayload(
     edges: layout.edges,
     laneCount: layout.laneCount,
     hasMore,
+    hasNewer,
     mode,
     repoRoot,
     headCommitId,

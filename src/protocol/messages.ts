@@ -35,6 +35,7 @@ export type HostToWebview =
       edges: GraphEdgeDto[];
       laneCount: number;
       hasMore: boolean;
+      hasNewer: boolean;
       mode: 'replace' | 'append';
       repoRoot: string;
       headCommitId: string;
@@ -51,7 +52,8 @@ export type WebviewToHost =
   | { type: 'switchBranch' }
   | { type: 'selectRepository' }
   | { type: 'retry' }
-  | { type: 'loadMore' };
+  | { type: 'loadMore' }
+  | { type: 'loadNewer' };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -118,6 +120,7 @@ export function isHostMessage(value: unknown): value is HostToWebview {
         value.edges.every(isGraphEdgeDto) &&
         typeof value.laneCount === 'number' &&
         typeof value.hasMore === 'boolean' &&
+        typeof value.hasNewer === 'boolean' &&
         (value.mode === 'replace' || value.mode === 'append') &&
         isNonEmptyString(value.repoRoot) &&
         typeof value.headCommitId === 'string' &&
@@ -153,6 +156,7 @@ export function isWebviewToHost(value: unknown): value is WebviewToHost {
     case 'selectRepository':
     case 'retry':
     case 'loadMore':
+    case 'loadNewer':
       return true;
     case 'commitSelected':
       return isNonEmptyString(value.commitId);
