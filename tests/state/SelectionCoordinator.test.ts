@@ -807,5 +807,46 @@ describe('SelectionCoordinator', () => {
       coordinator.onScanIdle();
       expect(selection.getSnapshot().repoRoot).toBe('d:/workspace/cct/Expressage');
     });
+
+    it('does not apply fallback after onScanStarted until scan idle again', () => {
+      const { selection, coordinator, rootsGetter } = makeCoordinator({
+        roots: ['/ws/a', '/ws/b'],
+        workspaceFolders: ['/ws'],
+        activeFile: null,
+      });
+      coordinator.onScanIdle();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+
+      coordinator.onScanStarted();
+      rootsGetter.mockReturnValue(['/ws']);
+      coordinator.resolveInitial();
+
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+
+      coordinator.onScanIdle();
+      expect(selection.getSnapshot().repoRoot).toBe('/ws');
+      expect(coordinator.isLocked()).toBe(true);
+    });
+  });
+
+  describe('onScanStarted', () => {
+    it('clears index authority without changing selection or lock', () => {
+      const { selection, coordinator } = makeCoordinator({
+        roots: ['/ws'],
+        workspaceFolders: ['/ws'],
+        activeFile: null,
+      });
+      coordinator.onScanIdle();
+      expect(selection.getSnapshot().repoRoot).toBe('/ws');
+      expect(coordinator.isLocked()).toBe(true);
+
+      coordinator.onScanStarted();
+      coordinator.clearSelection();
+
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      coordinator.resolveInitial();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+    });
   });
 });

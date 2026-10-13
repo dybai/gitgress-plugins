@@ -110,6 +110,11 @@ export class SelectionCoordinator {
    * resolve rules. A locked selection that vanished from the authoritative
    * index is unlocked and re-resolved.
    */
+  /** Scan (re)started; index is incomplete until the next idle transition. */
+  onScanStarted(): void {
+    this.indexAuthoritative = false;
+  }
+
   onScanIdle(): void {
     this.reSelectSuppressedRoot = null;
     this.indexAuthoritative = true;

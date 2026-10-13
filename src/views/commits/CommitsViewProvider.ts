@@ -14,7 +14,11 @@ import {
   type CommitsLoadContext,
 } from './shouldReloadCommits';
 import { shouldPostAfterPagination } from './shouldPostAfterPagination';
-import { emptyRepoReason } from './emptyRepoReason';
+import {
+  emptyReasonOnIndexChange,
+  emptyRepoReason,
+  type EmptyRepoReason,
+} from './emptyRepoReason';
 import { scanStatusMessage, type ScanStatus } from './scanStatusMessage';
 
 export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
@@ -23,6 +27,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
   private lastLoadedCommitIds = new Set<string>();
   private lastLoadContext: CommitsLoadContext | null = null;
   private loadVersion = 0;
+  private lastPostedEmptyReason: EmptyRepoReason | null = null;
   private readonly controller: CommitWindowController;
 
   constructor(
@@ -146,6 +151,30 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     this.postScanStatus(status);
   }
 
+  /**
+   * Index length changed while no repo is selected; refresh the empty-state
+   * reason without starting a new commit load ({@link loadVersion}).
+   */
+  notifyIndexChanged(): void {
+    const view = this.view;
+    if (view === undefined) {
+      return;
+    }
+    if (this.selection.getSnapshot().repoRoot !== null) {
+      return;
+    }
+    const next = emptyReasonOnIndexChange(
+      this.getIndexedRootCount(),
+      this.lastPostedEmptyReason,
+    );
+    if (next === null) {
+      return;
+    }
+    this.lastPostedEmptyReason = next;
+    this.lastLoadedCommitIds.clear();
+    void view.webview.postMessage({ type: 'empty', reason: next });
+  }
+
   private postScanStatus(status: ScanStatus): void {
     const view = this.view;
     if (view === undefined) {
@@ -201,13 +230,12 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     this.lastLoadContext = { repoRoot, branch };
     this.lastLoadedCommitIds.clear();
     if (repoRoot === null) {
-      this.applyMessage(
-        { type: 'empty', reason: emptyRepoReason(this.getIndexedRootCount()) },
-        version,
-        view,
-      );
+      const reason = emptyRepoReason(this.getIndexedRootCount());
+      this.lastPostedEmptyReason = reason;
+      this.applyMessage({ type: 'empty', reason }, version, view);
       return;
     }
+    this.lastPostedEmptyReason = null;
     if (branch === null || branch === '') {
       this.applyMessage(
         { type: 'empty', reason: 'noCommits', message: 'No branch selected' },

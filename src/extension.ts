@@ -200,8 +200,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   let lastScanStatus: ScanStatus | null = null;
   const onIndexChanged = (): void => {
     const status = index.getScanStatus();
+    if (status === 'scanning' && lastScanStatus !== 'scanning') {
+      coordinator.onScanStarted();
+    }
     coordinator.onIndexUpdated();
     commitsProvider.notifyScanStatus(status);
+    commitsProvider.notifyIndexChanged();
     void vscode.commands.executeCommand(
       'setContext',
       HAS_REPOSITORIES_CONTEXT,

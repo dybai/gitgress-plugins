@@ -11,6 +11,7 @@ export type ReloadHandlersDeps = {
   coordinator: {
     resolveInitial(): void;
     onIndexUpdated(): void;
+    onScanStarted(): void;
     clearReSelectSuppression(): void;
   };
 };
@@ -22,6 +23,7 @@ export type ReloadHandlersDeps = {
  */
 export async function reloadRepositoryState(deps: ReloadHandlersDeps): Promise<void> {
   deps.repoIndex.startScan();
+  deps.coordinator.onScanStarted();
   deps.coordinator.clearReSelectSuppression();
   deps.coordinator.resolveInitial();
   await refreshRepository(deps.gitService, deps.selection);
