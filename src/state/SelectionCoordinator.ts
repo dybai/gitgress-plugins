@@ -17,6 +17,7 @@ export class SelectionCoordinator {
     private readonly getIndexedRoots: () => readonly string[],
     private readonly preference: ManualRepoPreference,
     private readonly getActiveFilePath: () => string | null,
+    private readonly getWorkspaceFolderPaths: () => readonly string[],
     /**
      * Fallback when the workspace index does not yet contain the editor file's
      * repo (cold start / scan still running). Typically walks ancestors for `.git`.
@@ -24,7 +25,7 @@ export class SelectionCoordinator {
     private readonly discoverGitRoot?: (filePath: string) => string | null,
   ) {}
 
-  /** Apply preference → editor → empty. Clears stale preference when the index is authoritative. */
+  /** Apply preference → editor → authoritative fallback → empty. Clears stale preference when the index is authoritative. */
   resolveInitial(): void {
     const pref = this.preference.get();
     if (pref != null) {
@@ -54,7 +55,12 @@ export class SelectionCoordinator {
       }
     }
 
-    // Nothing matches: empty selection, do not lock.
+    const fallback = this.fallbackRepoRoot();
+    if (fallback != null && !this.isReSelectSuppressed(fallback)) {
+      this.selection.setRepo(fallback);
+      this.locked = true;
+      return;
+    }
     this.selection.setRepo(null);
   }
 
@@ -244,5 +250,23 @@ export class SelectionCoordinator {
       return fromIndex;
     }
     return this.discoverGitRoot?.(activeFile) ?? null;
+  }
+
+  private fallbackRepoRoot(): string | null {
+    if (!this.indexAuthoritative) {
+      return null;
+    }
+    const indexed = this.getIndexedRoots().map((root) => normalizeRepoPath(root));
+    const folders = new Set(
+      this.getWorkspaceFolderPaths().map((folder) => normalizeRepoPath(folder)),
+    );
+    const folderMatches = indexed.filter((root) => folders.has(root));
+    if (folderMatches.length === 1) {
+      return folderMatches[0]!;
+    }
+    if (indexed.length === 1) {
+      return indexed[0]!;
+    }
+    return null;
   }
 }

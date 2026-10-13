@@ -30,6 +30,7 @@ function setup(roots: string[], initialPref: string | null = null) {
       },
     },
     () => null,
+    () => [],
   );
   const showError = vi.fn(async () => {});
   return { selection, coordinator, showError, getPref: () => pref };

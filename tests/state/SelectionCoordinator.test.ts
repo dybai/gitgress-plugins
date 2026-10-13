@@ -23,20 +23,30 @@ function makeCoordinator(opts: {
   roots?: readonly string[];
   preference?: ManualRepoPreference;
   activeFile?: string | null;
+  workspaceFolders?: readonly string[];
   discoverGitRoot?: (filePath: string) => string | null;
 } = {}) {
   const selection = opts.selection ?? new SelectionState();
   const rootsGetter = vi.fn(() => opts.roots ?? []);
   const preference = opts.preference ?? makePreference();
   const activeFileGetter = vi.fn(() => opts.activeFile ?? null);
+  const workspaceFoldersGetter = vi.fn(() => opts.workspaceFolders ?? []);
   const coordinator = new SelectionCoordinator(
     selection,
     rootsGetter,
     preference,
     activeFileGetter,
+    workspaceFoldersGetter,
     opts.discoverGitRoot,
   );
-  return { selection, rootsGetter, preference, activeFileGetter, coordinator };
+  return {
+    selection,
+    rootsGetter,
+    preference,
+    activeFileGetter,
+    workspaceFoldersGetter,
+    coordinator,
+  };
 }
 
 describe('SelectionCoordinator', () => {
@@ -442,8 +452,8 @@ describe('SelectionCoordinator', () => {
 
       expect(setSpy).toHaveBeenCalledWith(null);
       expect(pref.get()).toBeNull();
-      expect(selection.getSnapshot().repoRoot).toBeNull();
-      expect(coordinator.isLocked()).toBe(false);
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/a');
+      expect(coordinator.isLocked()).toBe(true);
     });
   });
 
@@ -494,7 +504,7 @@ describe('SelectionCoordinator', () => {
     it('clears stale preference on scan idle after re-resolve, not during mid-scan', () => {
       const pref = makePreference('/gone/repo');
       const setSpy = vi.spyOn(pref, 'set');
-      const { coordinator, rootsGetter } = makeCoordinator({
+      const { selection, coordinator, rootsGetter } = makeCoordinator({
         roots: [],
         preference: pref,
       });
@@ -508,7 +518,8 @@ describe('SelectionCoordinator', () => {
 
       coordinator.onScanIdle();
       expect(setSpy).toHaveBeenCalledWith(null);
-      expect(coordinator.isLocked()).toBe(false);
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
+      expect(coordinator.isLocked()).toBe(true);
     });
 
     it('clears preference when the only selected repository vanishes and does not resurrect it', () => {
@@ -562,8 +573,8 @@ describe('SelectionCoordinator', () => {
 
       expect(setSpy).toHaveBeenCalledWith(null);
       expect(pref.get()).toBeNull();
-      expect(selection.getSnapshot().repoRoot).toBeNull();
-      expect(coordinator.isLocked()).toBe(false);
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
+      expect(coordinator.isLocked()).toBe(true);
     });
 
     it('clears stale preference when a completed empty index arrives', () => {
@@ -619,8 +630,8 @@ describe('SelectionCoordinator', () => {
       coordinator.onScanIdle();
 
       expect(pref.get()).toBeNull();
-      expect(selection.getSnapshot().repoRoot).toBeNull();
-      expect(coordinator.isLocked()).toBe(false);
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/other');
+      expect(coordinator.isLocked()).toBe(true);
     });
   });
 
@@ -704,6 +715,97 @@ describe('SelectionCoordinator', () => {
     it('starts unlocked', () => {
       const { coordinator } = makeCoordinator();
       expect(coordinator.isLocked()).toBe(false);
+    });
+  });
+
+  describe('authoritative fallback', () => {
+    it('does not fallback before the index is authoritative', () => {
+      const { selection, coordinator, preference } = makeCoordinator({
+        roots: ['/ws'],
+        workspaceFolders: ['/ws'],
+        activeFile: null,
+      });
+      coordinator.resolveInitial();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+      expect(preference.get()).toBeNull();
+    });
+
+    it('selects the unique workspace-folder root after scan idle', () => {
+      const { selection, coordinator, preference } = makeCoordinator({
+        roots: ['/ws', '/ws/nested'],
+        workspaceFolders: ['/ws'],
+        activeFile: null,
+      });
+      coordinator.onScanIdle();
+      expect(selection.getSnapshot().repoRoot).toBe('/ws');
+      expect(coordinator.isLocked()).toBe(true);
+      expect(preference.get()).toBeNull();
+    });
+
+    it('selects the unique indexed root when no folder root matches', () => {
+      const { selection, coordinator, preference } = makeCoordinator({
+        roots: ['/ws/apps/api'],
+        workspaceFolders: ['/ws'],
+        activeFile: null,
+      });
+      coordinator.onScanIdle();
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
+      expect(coordinator.isLocked()).toBe(true);
+      expect(preference.get()).toBeNull();
+    });
+
+    it('leaves empty when multiple workspace folders are themselves indexed roots', () => {
+      const { selection, coordinator } = makeCoordinator({
+        roots: ['/a', '/b'],
+        workspaceFolders: ['/a', '/b'],
+        activeFile: null,
+      });
+      coordinator.onScanIdle();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(coordinator.isLocked()).toBe(false);
+    });
+
+    it('leaves empty when no folder match and multiple indexed roots', () => {
+      const { selection, coordinator } = makeCoordinator({
+        roots: ['/ws/a', '/ws/b'],
+        workspaceFolders: ['/ws'],
+        activeFile: null,
+      });
+      coordinator.onScanIdle();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+    });
+
+    it('prefers editor owning root over fallback after idle', () => {
+      const { selection, coordinator } = makeCoordinator({
+        roots: ['/ws', '/ws/apps/api'],
+        workspaceFolders: ['/ws'],
+        activeFile: '/ws/apps/api/src/main.ts',
+      });
+      coordinator.onScanIdle();
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
+    });
+
+    it('onIndexUpdated does not apply folder fallback before idle; onScanIdle does', () => {
+      const { selection, coordinator } = makeCoordinator({
+        roots: ['/ws'],
+        workspaceFolders: ['/ws'],
+        activeFile: null,
+      });
+      coordinator.onIndexUpdated();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      coordinator.onScanIdle();
+      expect(selection.getSnapshot().repoRoot).toBe('/ws');
+    });
+
+    it('matches workspace folder to indexed root with Windows path normalization', () => {
+      const { selection, coordinator } = makeCoordinator({
+        roots: ['d:/workspace/cct/Expressage'],
+        workspaceFolders: ['D:\\workspace\\cct\\Expressage'],
+        activeFile: null,
+      });
+      coordinator.onScanIdle();
+      expect(selection.getSnapshot().repoRoot).toBe('d:/workspace/cct/Expressage');
     });
   });
 });
