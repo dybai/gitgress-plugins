@@ -220,14 +220,16 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
       return;
     }
 
+    // Claim loadVersion before awaiting so concurrent load()/reconcileFromHistory
+    // supersede this pagination pass (same ordering as load()).
+    const version = ++this.loadVersion;
     try {
       const result = await (direction === 'older'
         ? this.controller.loadOlder(repoRoot, branch, selectedCommitId)
         : this.controller.loadNewer(repoRoot, branch, selectedCommitId));
-      if (result !== 'ok' || this.view !== view) {
+      if (result !== 'ok' || !this.isCurrentLoad(version, view)) {
         return;
       }
-      const version = ++this.loadVersion;
       await this.postWindow(snapshot, version, view);
       if (!this.isCurrentLoad(version, view)) {
         return;
