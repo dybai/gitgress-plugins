@@ -379,6 +379,49 @@ describe('CommitWindowController', () => {
     ]);
   });
 
+  it('reports reconcile superseded when resetFromTip races invalid-selection reset', async () => {
+    const git = createGit();
+    const reconcileResetLog = deferred<CommitSummary[]>();
+    let tipLogCalls = 0;
+    vi.mocked(git.log).mockImplementation((_repo, ref) => {
+      if (ref !== 'main') {
+        return Promise.resolve([commit('selected'), commit('older')]);
+      }
+      tipLogCalls += 1;
+      if (tipLogCalls === 1) {
+        return Promise.resolve([commit('old-tip'), commit('selected')]);
+      }
+      if (tipLogCalls === 2) {
+        return reconcileResetLog.promise;
+      }
+      return Promise.resolve([commit('concurrent-reset-tip')]);
+    });
+    vi.mocked(git.resolveTip).mockResolvedValue('new-tip');
+    vi.mocked(git.isCommitOnBranch).mockResolvedValue(false);
+    const controller = new CommitWindowController(git, 2, 3);
+    await controller.resetFromTip('/repo', 'main');
+
+    const reconcile = controller.reconcileAfterHistoryChange(
+      '/repo',
+      'main',
+      'selected',
+    );
+    await vi.waitFor(() => {
+      expect(tipLogCalls).toBe(2);
+    });
+    await controller.resetFromTip('/repo', 'main');
+    reconcileResetLog.resolve([commit('stale-reconcile-tip')]);
+
+    await expect(reconcile).resolves.toEqual({
+      selectionInvalid: true,
+      tip: 'new-tip',
+      superseded: true,
+    });
+    expect(controller.getState().loaded.map(({ id }) => id)).toEqual([
+      'concurrent-reset-tip',
+    ]);
+  });
+
   it('reports a reconcile superseded by resetFromTip', async () => {
     const git = createGit();
     const tip = deferred<string | null>();

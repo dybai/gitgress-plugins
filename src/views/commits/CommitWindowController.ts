@@ -42,11 +42,21 @@ export class CommitWindowController {
     hasNewer: boolean;
   }> {
     const epoch = ++this.epoch;
-    const batch = await this.git.log(repoRoot, branch, this.pageSize);
-    if (epoch === this.epoch) {
-      this.state = replaceFromTip(batch, this.pageSize);
-    }
+    await this.resetFromTipAtEpoch(repoRoot, branch, epoch);
     return this.state;
+  }
+
+  private async resetFromTipAtEpoch(
+    repoRoot: string,
+    branch: string,
+    expectedEpoch: number,
+  ): Promise<boolean> {
+    const batch = await this.git.log(repoRoot, branch, this.pageSize);
+    if (expectedEpoch === this.epoch) {
+      this.state = replaceFromTip(batch, this.pageSize);
+      return true;
+    }
+    return false;
   }
 
   async loadOlder(
@@ -234,7 +244,10 @@ export class CommitWindowController {
       return { selectionInvalid: false, tip, superseded: true };
     }
     if (selectedId === null) {
-      await this.resetFromTip(repoRoot, branch);
+      const applied = await this.resetFromTipAtEpoch(repoRoot, branch, epoch);
+      if (!applied) {
+        return { selectionInvalid: false, tip, superseded: true };
+      }
       return { selectionInvalid: false, tip };
     }
 
@@ -247,7 +260,10 @@ export class CommitWindowController {
       return { selectionInvalid: false, tip, superseded: true };
     }
     if (!selectionIsValid) {
-      await this.resetFromTip(repoRoot, branch);
+      const applied = await this.resetFromTipAtEpoch(repoRoot, branch, epoch);
+      if (!applied) {
+        return { selectionInvalid: true, tip, superseded: true };
+      }
       return { selectionInvalid: true, tip };
     }
 
