@@ -14,7 +14,9 @@ import { DiffService } from './diff/DiffService';
 import { GITGRESS_SCHEME } from './diff/gitgressUri';
 import { GitgressContentProvider } from './diff/GitgressContentProvider';
 import { pickActiveFilePath } from './extension/activeFilePath';
+import { GitHistoryWatcher } from './git/GitHistoryWatcher';
 import { GitService } from './git/GitService';
+import { resolveGitDir } from './git/resolveGitDir';
 import { createRunGit } from './git/runGit';
 import { discoverGitRootFromPath } from './repoIndex/discoverGitRootFromPath';
 import { createNodeScanFs } from './repoIndex/nodeScanFs';
@@ -29,6 +31,48 @@ import { FilesViewProvider } from './views/files/FilesViewProvider';
 const MANUAL_REPO_ROOT_KEY = 'gitgress.manualRepoRoot';
 const HAS_REPOSITORIES_CONTEXT = 'gitgress.hasRepositories';
 const INDEX_DB_FILE = 'repos.sqlite';
+const GIT_HISTORY_WATCH_PATTERNS = ['HEAD', 'packed-refs', 'refs/heads/**'] as const;
+
+function createGitHistoryFileWatcher(gitDir: string) {
+  const watchers: vscode.FileSystemWatcher[] = [];
+  try {
+    for (const pattern of GIT_HISTORY_WATCH_PATTERNS) {
+      watchers.push(
+        vscode.workspace.createFileSystemWatcher(
+          new vscode.RelativePattern(gitDir, pattern),
+          false,
+          false,
+          false,
+        ),
+      );
+    }
+  } catch (error) {
+    for (const watcher of watchers) {
+      watcher.dispose();
+    }
+    console.warn(`GitGress: unable to watch git history in ${gitDir}`, error);
+    return {
+      onDidCreate: () => new vscode.Disposable(() => {}),
+      onDidChange: () => new vscode.Disposable(() => {}),
+      onDidDelete: () => new vscode.Disposable(() => {}),
+      dispose: () => {},
+    };
+  }
+
+  return {
+    onDidCreate: (listener: () => void) =>
+      vscode.Disposable.from(...watchers.map((watcher) => watcher.onDidCreate(listener))),
+    onDidChange: (listener: () => void) =>
+      vscode.Disposable.from(...watchers.map((watcher) => watcher.onDidChange(listener))),
+    onDidDelete: (listener: () => void) =>
+      vscode.Disposable.from(...watchers.map((watcher) => watcher.onDidDelete(listener))),
+    dispose: () => {
+      for (const watcher of watchers) {
+        watcher.dispose();
+      }
+    },
+  };
+}
 
 function workspaceRoots(): string[] {
   return (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri.fsPath);
@@ -103,6 +147,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     gitService,
     diffService,
   );
+  const historyWatcher = new GitHistoryWatcher(
+    {
+      debounceMs: 1500,
+      resolveGitDir: (repoRoot) =>
+        resolveGitDir(repoRoot, {
+          exists: fs.existsSync,
+          isDirectory: (candidate) => fs.statSync(candidate).isDirectory(),
+          readFile: (candidate) => fs.readFileSync(candidate, 'utf8'),
+        }),
+      createWatcher: createGitHistoryFileWatcher,
+      readTip: (repoRoot, branch) => gitService.resolveTip(repoRoot, branch),
+      setTimeout,
+      clearTimeout,
+    },
+    () => {
+      void commitsProvider.reconcileFromHistory();
+    },
+  );
 
   const showError = async (error: unknown): Promise<void> => {
     await vscode.window.showErrorMessage(gitErrorMessage(error));
@@ -145,7 +207,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     commitsProvider,
     filesProvider,
+    historyWatcher,
     { dispose: () => index.dispose() },
+    {
+      dispose: selection.subscribe((snapshot) => {
+        historyWatcher.retarget(
+          snapshot.repoRoot === null
+            ? null
+            : {
+                repoRoot: snapshot.repoRoot,
+                repoGeneration: snapshot.repoGeneration,
+                branch: snapshot.branch,
+              },
+        );
+      }),
+    },
     // A newly selected repo (manual pick, editor rule, index resolution) has no
     // branch yet; initialize it here so every selection path behaves the same.
     {
