@@ -13,6 +13,7 @@ import {
   shouldReloadCommits,
   type CommitsLoadContext,
 } from './shouldReloadCommits';
+import { shouldPostAfterPagination } from './shouldPostAfterPagination';
 import { scanStatusMessage, type ScanStatus } from './scanStatusMessage';
 
 export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
@@ -220,17 +221,31 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
       return;
     }
 
-    // Claim loadVersion before awaiting so concurrent load()/reconcileFromHistory
-    // supersede this pagination pass (same ordering as load()).
-    const version = ++this.loadVersion;
+    const baselineLoadVersion = this.loadVersion;
     try {
       const result = await (direction === 'older'
         ? this.controller.loadOlder(repoRoot, branch, selectedCommitId)
         : this.controller.loadNewer(repoRoot, branch, selectedCommitId));
-      if (result !== 'ok' || !this.isCurrentLoad(version, view)) {
+      if (
+        !shouldPostAfterPagination(
+          baselineLoadVersion,
+          this.loadVersion,
+          result,
+        ) ||
+        this.view !== view
+      ) {
         return;
       }
-      await this.postWindow(snapshot, version, view);
+      const currentSelection = this.selection.getSnapshot();
+      if (
+        currentSelection.repoGeneration !== snapshot.repoGeneration ||
+        currentSelection.repoRoot !== repoRoot ||
+        currentSelection.branch !== branch
+      ) {
+        return;
+      }
+      const version = ++this.loadVersion;
+      await this.postWindow(currentSelection, version, view);
       if (!this.isCurrentLoad(version, view)) {
         return;
       }
