@@ -11,6 +11,10 @@ import {
 import { formatCompactRelativeTime } from '../../src/views/commits/formatCompactRelativeTime.ts';
 import { repoShortName } from '../../src/views/commits/repoShortName.ts';
 import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
+import {
+  anchoredScrollTop,
+  chooseScrollAnchorId,
+} from './scrollAnchor.js';
 
   const vscode = acquireVsCodeApi();
   const status = document.querySelector('#status');
@@ -31,6 +35,7 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
   let lastHasNewer = false;
   let loadMoreSent = false;
   let loadNewerSent = false;
+  let suppressEdgeRequestsUntilUserScroll = false;
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const MAX_LANES = 10;
@@ -458,26 +463,58 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
     svg.replaceChildren(edges, nodes);
   };
 
-  const isGrowingReplacement = (message) =>
-    message.mode === 'replace' &&
-    lastPayload?.branch === message.branch &&
-    message.commits.length > lastPayload.commits.length &&
-    lastPayload.commits.every(
-      (commit, index) => message.commits[index]?.id === commit.id,
-    );
-
-  const isPrependingReplacement = (message) =>
-    message.mode === 'replace' &&
-    lastPayload?.branch === message.branch &&
-    message.commits.length > lastPayload.commits.length &&
-    lastPayload.commits.every(
-      (commit, index) =>
-        message.commits[
-          message.commits.length - lastPayload.commits.length + index
-        ]?.id === commit.id,
-    );
-
   const scrollContainer = () => document.scrollingElement || document.documentElement;
+
+  const captureScrollAnchor = (message) => {
+    if (message.mode !== 'replace') return null;
+
+    const incomingIds = new Set(message.commits.map((commit) => commit.id));
+    const rows = [...commitList.querySelectorAll('.commit-button')]
+      .filter((button) => incomingIds.has(button.dataset.commitId))
+      .map((button) => {
+        const rect = button.getBoundingClientRect();
+        return {
+          id: button.dataset.commitId,
+          top: rect.top,
+          bottom: rect.bottom,
+        };
+      })
+      .filter((row) => typeof row.id === 'string');
+    const id = chooseScrollAnchorId(
+      message.selectedCommitId,
+      rows,
+      0,
+      window.innerHeight,
+    );
+    if (id === null) return null;
+
+    const row = rows.find((candidate) => candidate.id === id);
+    return row
+      ? {
+          id,
+          top: row.top,
+          scrollTop: scrollContainer().scrollTop,
+        }
+      : null;
+  };
+
+  const restoreScrollAnchor = (anchor) => {
+    if (anchor === null) return false;
+    const button = commitList.querySelector(
+      `[data-commit-id="${CSS.escape(anchor.id)}"]`,
+    );
+    if (!(button instanceof HTMLButtonElement)) return false;
+
+    const el = scrollContainer();
+    const nextScrollTop = anchoredScrollTop(
+      anchor.scrollTop,
+      anchor.top,
+      button.getBoundingClientRect().top,
+    );
+    const restored = nextScrollTop !== el.scrollTop;
+    el.scrollTop = nextScrollTop;
+    return restored;
+  };
 
   const nearBottom = () => {
     const el = scrollContainer();
@@ -518,16 +555,7 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
 
   const renderCommits = (message) => {
     hideHover();
-    const growing = isGrowingReplacement(message);
-    const prepending = isPrependingReplacement(message);
-    const savedScroll =
-      growing || prepending
-        ? {
-            top: scrollContainer().scrollTop,
-            height: scrollContainer().scrollHeight,
-            prepend: prepending,
-          }
-        : null;
+    const scrollAnchor = captureScrollAnchor(message);
     selectedButton = undefined;
     const root =
       typeof message.repoRoot === 'string' && message.repoRoot.length > 0
@@ -570,15 +598,7 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
     content.classList.remove('hidden');
     lastPayload = message;
     drawGraph(message);
-    if (savedScroll !== null) {
-      const el = scrollContainer();
-      if (savedScroll.prepend) {
-        el.scrollTop =
-          savedScroll.top + (el.scrollHeight - savedScroll.height);
-      } else {
-        el.scrollTop = savedScroll.top;
-      }
-    }
+    restoreScrollAnchor(scrollAnchor);
   };
 
   const resizeObserver = new ResizeObserver(() => {
@@ -590,6 +610,7 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
     'scroll',
     () => {
       positionHover();
+      if (suppressEdgeRequestsUntilUserScroll) return;
       if (!nearBottom()) {
         loadMoreSent = false;
       } else {
@@ -603,6 +624,26 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
     },
     { passive: true },
   );
+
+  const resumeEdgeRequestsForUserScroll = () => {
+    suppressEdgeRequestsUntilUserScroll = false;
+  };
+  window.addEventListener('wheel', resumeEdgeRequestsForUserScroll, { passive: true });
+  window.addEventListener('touchstart', resumeEdgeRequestsForUserScroll, {
+    passive: true,
+  });
+  window.addEventListener('pointerdown', resumeEdgeRequestsForUserScroll, {
+    passive: true,
+  });
+  window.addEventListener('keydown', (event) => {
+    if (
+      ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(
+        event.key,
+      )
+    ) {
+      resumeEdgeRequestsForUserScroll();
+    }
+  });
 
   window.addEventListener('resize', positionHover);
   hoverCard.addEventListener('mouseenter', cancelHideHover);
@@ -618,13 +659,17 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
       return;
     }
     if (data.type === 'commitsLoaded' && Array.isArray(data.commits)) {
+      const completedEdgeLoad = loadMoreSent || loadNewerSent;
       renderCommits(data);
       lastHasMore = data.hasMore === true;
       lastHasNewer = data.hasNewer === true;
       loadMoreSent = false;
       loadNewerSent = false;
-      maybeRequestLoadMore();
-      maybeRequestLoadNewer();
+      suppressEdgeRequestsUntilUserScroll = completedEdgeLoad;
+      if (!completedEdgeLoad) {
+        maybeRequestLoadMore();
+        maybeRequestLoadNewer();
+      }
       return;
     }
     if (data.type === 'selectionCleared') {

@@ -57,10 +57,18 @@ describe('commits window edge pagination', () => {
     expect(source).toMatch(/data\.hasNewer/);
   });
 
-  it('preserves scroll position when prepending commits', () => {
-    expect(source).toMatch(/isPrependingReplacement/);
-    expect(source).toMatch(
-      /scrollTop\s*=\s*savedScroll\.top\s*\+\s*\(\s*el\.scrollHeight\s*-\s*savedScroll\.height\s*\)/,
-    );
+  it('anchors replace renders by commit id instead of list length', () => {
+    expect(source).toMatch(/captureScrollAnchor/);
+    expect(source).toMatch(/restoreScrollAnchor/);
+    expect(source).toMatch(/chooseScrollAnchorId/);
+    expect(source).toMatch(/anchoredScrollTop/);
+    expect(source).not.toMatch(/isGrowingReplacement/);
+    expect(source).not.toMatch(/isPrependingReplacement/);
+  });
+
+  it('suppresses automatic edge requests after an edge-load response', () => {
+    expect(source).toMatch(/suppressEdgeRequestsUntilUserScroll/);
+    expect(source).toMatch(/completedEdgeLoad/);
+    expect(source).toMatch(/resumeEdgeRequestsForUserScroll/);
   });
 });
