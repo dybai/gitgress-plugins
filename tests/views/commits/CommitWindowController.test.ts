@@ -314,4 +314,96 @@ describe('CommitWindowController', () => {
     ]);
     expect(controller.getState().olderPreload).toBeNull();
   });
+
+  it('applies an in-flight older load after a newer preload completes', async () => {
+    const git = createGit();
+    const older = deferred<CommitSummary[]>();
+    const newer = deferred<CommitSummary[]>();
+    vi.mocked(git.log)
+      .mockResolvedValueOnce([commit('c'), commit('d')])
+      .mockResolvedValueOnce([commit('c'), commit('d')]);
+    vi.mocked(git.resolveTip).mockResolvedValue('a');
+    vi.mocked(git.logOlderThan).mockReturnValue(older.promise);
+    vi.mocked(git.logNewerThan).mockReturnValue(newer.promise);
+    const controller = new CommitWindowController(git, 2, 3);
+    await controller.resetFromTip('/repo', 'main');
+    await controller.reconcileAfterHistoryChange('/repo', 'main', 'c');
+
+    const load = controller.loadOlder('/repo', 'main', 'c');
+    const preload = controller.preloadNewer('/repo', 'main');
+    newer.resolve([commit('a'), commit('b')]);
+    await preload;
+    older.resolve([commit('e'), commit('f')]);
+
+    await expect(load).resolves.toBe('ok');
+    expect(controller.getState().loaded.map(({ id }) => id)).toEqual([
+      'c',
+      'd',
+      'e',
+      'f',
+    ]);
+    expect(controller.getState().newerPreload?.map(({ id }) => id)).toEqual([
+      'a',
+      'b',
+    ]);
+  });
+
+  it('rebuilds during reconcile after a concurrent older load completes', async () => {
+    const git = createGit();
+    const tip = deferred<string | null>();
+    vi.mocked(git.log)
+      .mockResolvedValueOnce([commit('old-tip'), commit('selected')])
+      .mockResolvedValueOnce([commit('selected'), commit('rewritten-older')]);
+    vi.mocked(git.resolveTip).mockReturnValue(tip.promise);
+    vi.mocked(git.logOlderThan).mockResolvedValue([commit('old-older')]);
+    const controller = new CommitWindowController(git, 2, 3);
+    await controller.resetFromTip('/repo', 'main');
+
+    const reconcile = controller.reconcileAfterHistoryChange(
+      '/repo',
+      'main',
+      'selected',
+    );
+    await expect(controller.loadOlder('/repo', 'main', 'selected')).resolves.toBe(
+      'ok',
+    );
+    tip.resolve('new-tip');
+
+    await expect(reconcile).resolves.toEqual({
+      selectionInvalid: false,
+      tip: 'new-tip',
+    });
+    expect(controller.getState().loaded.map(({ id }) => id)).toEqual([
+      'selected',
+      'rewritten-older',
+    ]);
+  });
+
+  it('reports a reconcile superseded by resetFromTip', async () => {
+    const git = createGit();
+    const tip = deferred<string | null>();
+    vi.mocked(git.log)
+      .mockResolvedValueOnce([commit('old-tip'), commit('selected')])
+      .mockResolvedValueOnce([commit('reset-tip')]);
+    vi.mocked(git.resolveTip).mockReturnValue(tip.promise);
+    const controller = new CommitWindowController(git, 2, 3);
+    await controller.resetFromTip('/repo', 'main');
+
+    const reconcile = controller.reconcileAfterHistoryChange(
+      '/repo',
+      'main',
+      'selected',
+    );
+    await controller.resetFromTip('/repo', 'main');
+    tip.resolve('new-tip');
+
+    await expect(reconcile).resolves.toEqual({
+      selectionInvalid: false,
+      tip: 'new-tip',
+      superseded: true,
+    });
+    expect(controller.getState().loaded.map(({ id }) => id)).toEqual([
+      'reset-tip',
+    ]);
+  });
 });

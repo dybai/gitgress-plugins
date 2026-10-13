@@ -71,7 +71,6 @@ export class CommitWindowController {
           this.maxPages,
           selectedId,
         );
-        this.epoch += 1;
       } else {
         const firstId = this.state.loaded[0].id;
         const anchor = this.state.loaded.at(-1)!;
@@ -95,7 +94,6 @@ export class CommitWindowController {
           this.maxPages,
           selectedId,
         );
-        this.epoch += 1;
       }
       return 'ok';
     } finally {
@@ -125,7 +123,6 @@ export class CommitWindowController {
           this.maxPages,
           selectedId,
         );
-        this.epoch += 1;
       } else {
         const anchor = this.state.loaded[0];
         const lastId = this.state.loaded.at(-1)!.id;
@@ -149,7 +146,6 @@ export class CommitWindowController {
           this.maxPages,
           selectedId,
         );
-        this.epoch += 1;
       }
       return 'ok';
     } finally {
@@ -183,7 +179,6 @@ export class CommitWindowController {
         return;
       }
       this.state = setOlderPreload(this.state, batch);
-      this.epoch += 1;
     } catch {
       // Preload is speculative; the regular load path can retry.
     }
@@ -215,21 +210,28 @@ export class CommitWindowController {
         return;
       }
       this.state = setNewerPreload(this.state, batch);
-      this.epoch += 1;
     } catch {
       // Preload is speculative; the regular load path can retry.
     }
   }
 
+  /**
+   * Rebuilds the window after a history change. `superseded` means a later
+   * reset or reconcile replaced this operation while it was awaiting Git.
+   */
   async reconcileAfterHistoryChange(
     repoRoot: string,
     branch: string,
     selectedId: string | null,
-  ): Promise<{ selectionInvalid: boolean; tip: string | null }> {
+  ): Promise<{
+    selectionInvalid: boolean;
+    tip: string | null;
+    superseded?: boolean;
+  }> {
     const epoch = ++this.epoch;
     const tip = await this.git.resolveTip(repoRoot, branch);
     if (epoch !== this.epoch) {
-      return { selectionInvalid: false, tip };
+      return { selectionInvalid: false, tip, superseded: true };
     }
     if (selectedId === null) {
       await this.resetFromTip(repoRoot, branch);
@@ -242,7 +244,7 @@ export class CommitWindowController {
       selectedId,
     );
     if (epoch !== this.epoch) {
-      return { selectionInvalid: false, tip };
+      return { selectionInvalid: false, tip, superseded: true };
     }
     if (!selectionIsValid) {
       await this.resetFromTip(repoRoot, branch);
@@ -251,7 +253,7 @@ export class CommitWindowController {
 
     const batch = await this.git.log(repoRoot, selectedId, this.pageSize);
     if (epoch !== this.epoch) {
-      return { selectionInvalid: false, tip };
+      return { selectionInvalid: false, tip, superseded: true };
     }
     this.state = {
       ...replaceFromTip(batch, this.pageSize),
@@ -260,7 +262,6 @@ export class CommitWindowController {
         tip !== selectedId &&
         !batch.some(({ id }) => id === tip),
     };
-    this.epoch += 1;
     return { selectionInvalid: false, tip };
   }
 }
