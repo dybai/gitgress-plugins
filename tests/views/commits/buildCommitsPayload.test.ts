@@ -32,6 +32,7 @@ describe('buildCommitsPayload', () => {
       rows,
       'replace',
       true,
+      true,
       null,
       '/repo',
       'b',
@@ -44,6 +45,7 @@ describe('buildCommitsPayload', () => {
     expect(message.type).toBe('commitsLoaded');
     expect(message.branch).toBe('main');
     expect(message.hasMore).toBe(true);
+    expect(message.hasNewer).toBe(true);
     expect(message.mode).toBe('replace');
     expect(message.selectedCommitId).toBeNull();
     expect(message.repoRoot).toBe('/repo');

@@ -7,19 +7,12 @@ import {
   type WebviewToHost,
 } from '../../protocol/messages';
 import type { SelectionSnapshot, SelectionState } from '../../state/SelectionState';
-import { buildCommitsPayload, PAGE_SIZE } from './buildCommitsPayload';
+import { buildCommitsPayload } from './buildCommitsPayload';
+import { CommitWindowController } from './CommitWindowController';
 import {
   shouldReloadCommits,
   type CommitsLoadContext,
 } from './shouldReloadCommits';
-import {
-  appendPage,
-  beginLoadMore,
-  createPaginationState,
-  failLoadMore,
-  loadCommitPage,
-  replacePage,
-} from './paginationState';
 import { scanStatusMessage, type ScanStatus } from './scanStatusMessage';
 
 export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
@@ -28,7 +21,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
   private lastLoadedCommitIds = new Set<string>();
   private lastLoadContext: CommitsLoadContext | null = null;
   private loadVersion = 0;
-  private pagination = createPaginationState();
+  private readonly controller: CommitWindowController;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
@@ -36,6 +29,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     private readonly gitService: GitService,
     private readonly getScanStatus: () => ScanStatus = () => 'idle',
   ) {
+    this.controller = new CommitWindowController(gitService);
     this.unsubscribe = selection.subscribe((snapshot) => {
       if (!shouldReloadCommits(this.lastLoadContext, snapshot)) {
         return;
@@ -65,13 +59,53 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
         this.view = undefined;
         this.lastLoadedCommitIds.clear();
         this.lastLoadContext = null;
-        this.resetPagination();
       }
     });
   }
 
   refresh(): void {
     void this.load(this.selection.getSnapshot());
+  }
+
+  async reconcileFromHistory(): Promise<void> {
+    const view = this.view;
+    const snapshot = this.selection.getSnapshot();
+    const { repoRoot, branch, selectedCommitId } = snapshot;
+    if (view === undefined || repoRoot === null || branch === null || branch === '') {
+      return;
+    }
+
+    const version = ++this.loadVersion;
+    try {
+      const result = await this.controller.reconcileAfterHistoryChange(
+        repoRoot,
+        branch,
+        selectedCommitId,
+      );
+      if (result.superseded || !this.isCurrentLoad(version, view)) {
+        return;
+      }
+      const currentSelection = this.selection.getSnapshot();
+      if (
+        currentSelection.repoGeneration !== snapshot.repoGeneration ||
+        currentSelection.repoRoot !== repoRoot ||
+        currentSelection.branch !== branch ||
+        currentSelection.selectedCommitId !== selectedCommitId
+      ) {
+        return;
+      }
+      if (result.selectionInvalid) {
+        this.selection.selectCommit(null);
+      }
+      await this.postWindow(
+        { ...snapshot, selectedCommitId: result.selectionInvalid ? null : selectedCommitId },
+        version,
+        view,
+        result.tip,
+      );
+    } catch {
+      // Keep the existing window visible; a later watcher event or refresh can retry.
+    }
   }
 
   /**
@@ -96,7 +130,6 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     this.view = undefined;
     this.lastLoadedCommitIds.clear();
     this.lastLoadContext = null;
-    this.resetPagination();
   }
 
   private async handleMessage(message: WebviewToHost): Promise<void> {
@@ -114,7 +147,10 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
         }
         return;
       case 'loadMore':
-        await this.loadMore();
+        await this.loadDirection('older');
+        return;
+      case 'loadNewer':
+        await this.loadDirection('newer');
         return;
       case 'switchBranch':
         await vscode.commands.executeCommand('gitgress.switchBranch');
@@ -134,7 +170,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     const version = ++this.loadVersion;
     const { repoRoot, branch } = snapshot;
     this.lastLoadContext = { repoRoot, branch };
-    this.resetPagination();
+    this.lastLoadedCommitIds.clear();
     if (repoRoot === null) {
       this.applyMessage({ type: 'empty', reason: 'noRepo' }, version, view);
       return;
@@ -149,46 +185,20 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     }
 
     try {
-      const { batch, selectedCommitId } = await loadCommitPage(
-        this.gitService,
-        this.selection,
-        repoRoot,
-        branch,
-        PAGE_SIZE,
-        0,
-      );
+      const state = await this.controller.resetFromTip(repoRoot, branch);
       if (!this.isCurrentLoad(version, view)) {
         return;
       }
-      if (batch.length === 0) {
+      if (state.loaded.length === 0) {
         this.applyMessage({ type: 'empty', reason: 'noCommits' }, version, view);
         return;
       }
-      this.pagination = replacePage(this.pagination, batch, PAGE_SIZE);
-      const tip = await this.gitService.resolveTip(repoRoot, branch);
-      const tips = await this.gitService.listTips(repoRoot);
-      if (!this.isCurrentLoad(version, view)) {
-        return;
-      }
-      this.applyMessage(
-        buildCommitsPayload(
-          branch,
-          this.pagination.loaded,
-          'replace',
-          this.pagination.hasMore,
-          selectedCommitId,
-          repoRoot,
-          tip ?? '',
-          tips,
-        ),
-        version,
-        view,
-      );
+      await this.postWindow(snapshot, version, view);
     } catch {
       if (!this.isCurrentLoad(version, view)) {
         return;
       }
-      this.resetPagination();
+      this.lastLoadedCommitIds.clear();
       this.applyMessage(
         { type: 'empty', reason: 'error', message: 'Unable to load commits' },
         version,
@@ -197,70 +207,78 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     }
   }
 
-  private async loadMore(): Promise<void> {
+  private async loadDirection(direction: 'older' | 'newer'): Promise<void> {
     const view = this.view;
-    const { repoRoot, branch } = this.selection.getSnapshot();
-    const loadingPagination = beginLoadMore(this.pagination);
+    const snapshot = this.selection.getSnapshot();
+    const { repoRoot, branch, selectedCommitId } = snapshot;
     if (
       view === undefined ||
       repoRoot === null ||
       branch === null ||
-      branch === '' ||
-      loadingPagination === null
+      branch === ''
     ) {
       return;
     }
 
-    const version = ++this.loadVersion;
-    const offset = loadingPagination.loaded.length;
-    this.pagination = loadingPagination;
     try {
-      const { batch, selectedCommitId } = await loadCommitPage(
-        this.gitService,
-        this.selection,
-        repoRoot,
-        branch,
-        PAGE_SIZE,
-        offset,
-      );
+      const result = await (direction === 'older'
+        ? this.controller.loadOlder(repoRoot, branch, selectedCommitId)
+        : this.controller.loadNewer(repoRoot, branch, selectedCommitId));
+      if (result !== 'ok' || this.view !== view) {
+        return;
+      }
+      const version = ++this.loadVersion;
+      await this.postWindow(snapshot, version, view);
       if (!this.isCurrentLoad(version, view)) {
         return;
       }
-      this.pagination = appendPage(this.pagination, batch, PAGE_SIZE);
-      const tip = await this.gitService.resolveTip(repoRoot, branch);
-      const tips = await this.gitService.listTips(repoRoot);
-      if (!this.isCurrentLoad(version, view)) {
-        return;
-      }
-      this.applyMessage(
-        buildCommitsPayload(
-          branch,
-          this.pagination.loaded,
-          'replace',
-          this.pagination.hasMore,
-          selectedCommitId,
-          repoRoot,
-          tip ?? '',
-          tips,
-        ),
-        version,
-        view,
-      );
+      void (direction === 'older'
+        ? this.controller.preloadOlder(repoRoot, branch)
+        : this.controller.preloadNewer(repoRoot, branch));
     } catch {
-      // Keep the existing commits visible so load more can be retried.
-      if (this.isCurrentLoad(version, view)) {
-        this.pagination = failLoadMore(this.pagination);
-      }
+      // Keep the existing commits visible so directional loading can be retried.
     }
+  }
+
+  private async postWindow(
+    snapshot: SelectionSnapshot,
+    version: number,
+    view: vscode.WebviewView,
+    knownTip?: string | null,
+  ): Promise<void> {
+    const { repoRoot, branch, selectedCommitId } = snapshot;
+    if (repoRoot === null || branch === null || branch === '') {
+      return;
+    }
+    const [tip, tips] = await Promise.all([
+      knownTip === undefined
+        ? this.gitService.resolveTip(repoRoot, branch)
+        : Promise.resolve(knownTip),
+      this.gitService.listTips(repoRoot),
+    ]);
+    if (!this.isCurrentLoad(version, view)) {
+      return;
+    }
+    const state = this.controller.getState();
+    this.applyMessage(
+      buildCommitsPayload(
+        branch,
+        state.loaded,
+        'replace',
+        state.hasOlder,
+        state.hasNewer,
+        selectedCommitId,
+        repoRoot,
+        tip ?? '',
+        tips,
+      ),
+      version,
+      view,
+    );
   }
 
   private isCurrentLoad(version: number, view: vscode.WebviewView): boolean {
     return version === this.loadVersion && this.view === view;
-  }
-
-  private resetPagination(): void {
-    this.pagination = createPaginationState();
-    this.lastLoadedCommitIds.clear();
   }
 
   private applyMessage(

@@ -11,11 +11,11 @@ export function buildCommitsPayload(
   rows: CommitSummary[],
   mode: 'replace' | 'append',
   hasMore: boolean,
+  hasNewer: boolean,
   selectedCommitId: string | null | undefined,
   repoRoot: string,
   headCommitId: string,
   tips: readonly TipRef[] = [],
-  hasNewer = false,
 ): Extract<HostToWebview, { type: 'commitsLoaded' }> {
   const layout = layoutCommitGraph(rows);
   const { refsById, tipCommitIds } = attachCommitRefs(
