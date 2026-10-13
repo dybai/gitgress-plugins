@@ -2,6 +2,19 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.9
+
+- Commits history uses a bidirectional sliding window (max 6 × 100 commits)
+  with one-page preload at the edges, so memory stays bounded while scrolling
+  toward older history or toward the tip (`loadNewer`).
+- Auto-refresh watches the selected repo’s gitdir (including worktree
+  layouts). After ~1.5s quiet, local tip changes reconcile the window while
+  keeping the selected commit when it still exists—Files then stay unchanged.
+- Remote-tracking tip pills (e.g. `origin/main`) update when `refs/remotes/**`
+  move (push / fetch) without rebuilding the whole commits window.
+- Manual Refresh still means “show latest”: reset from tip and rescan; it is
+  not the same as auto-refresh.
+
 ## 1.0.7
 
 - Files panel shows file and folder icons from the active File Icon Theme
