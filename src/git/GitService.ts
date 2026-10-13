@@ -192,19 +192,33 @@ export class GitService {
     if (!Number.isInteger(limit) || limit <= 0) {
       throw new RangeError('Git log limit must be a positive integer');
     }
-    const { stdout } = await this.runGit(repoRoot, [
-      'log',
-      '-n',
-      String(limit),
-      '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
-      '--numstat',
-      '--no-renames',
+    const { stdout: revListStdout } = await this.runGit(repoRoot, [
+      'rev-list',
       '--date-order',
       '--not',
       commitId,
       '--not',
       '--end-of-options',
       branch,
+      '--',
+    ]);
+    const commitIds = revListStdout
+      .split(/\r?\n/)
+      .map((id) => id.trim())
+      .filter((id) => id !== '')
+      .slice(-limit);
+    if (commitIds.length === 0) {
+      return [];
+    }
+
+    const { stdout } = await this.runGit(repoRoot, [
+      'log',
+      '--no-walk=unsorted',
+      '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
+      '--numstat',
+      '--no-renames',
+      '--end-of-options',
+      ...commitIds,
       '--',
     ]);
     return parseLog(stdout);
@@ -226,7 +240,10 @@ export class GitService {
       ]);
       return true;
     } catch (error) {
-      if (error instanceof GitCommandFailedError && error.exitCode === 1) {
+      if (
+        error instanceof GitCommandFailedError &&
+        (error.exitCode === 1 || error.exitCode === 128)
+      ) {
         return false;
       }
       throw error;

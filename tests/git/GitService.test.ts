@@ -203,18 +203,35 @@ describe('GitService', () => {
     ]);
   });
 
-  it('logs commits newer than an anchor from the branch tip', async () => {
-    const runGit = vi.fn<RunGit>(async () => ({ stdout: '', stderr: '' }));
+  it('logs the commits immediately newer than an anchor in newest-first order', async () => {
+    const hashes = Array.from({ length: 8 }, (_, index) => `hash-${index + 1}`);
+    const logStdout = hashes
+      .slice(-3)
+      .map(
+        (hash, index) =>
+          `${[
+            hash,
+            '',
+            `subject ${hash}`,
+            'Ann',
+            `2024-01-0${index + 1}T00:00:00Z`,
+            `body ${hash}\n`,
+          ].join('\x1f')}\x1d\n1\t0\t${hash}.ts\n\x1e`,
+      )
+      .join('');
+    const runGit = vi.fn<RunGit>(async (_cwd, args) => {
+      if (args[0] === 'rev-list') {
+        return { stdout: `${hashes.join('\n')}\n`, stderr: '' };
+      }
+      return { stdout: logStdout, stderr: '' };
+    });
 
-    await new GitService(runGit).logNewerThan('/repo', 'main', 'anchor', 25);
+    await expect(
+      new GitService(runGit).logNewerThan('/repo', 'main', 'anchor', 3),
+    ).resolves.toMatchObject([{ id: 'hash-6' }, { id: 'hash-7' }, { id: 'hash-8' }]);
 
-    expect(runGit).toHaveBeenCalledWith('/repo', [
-      'log',
-      '-n',
-      '25',
-      '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
-      '--numstat',
-      '--no-renames',
+    expect(runGit).toHaveBeenNthCalledWith(1, '/repo', [
+      'rev-list',
       '--date-order',
       '--not',
       'anchor',
@@ -223,6 +240,19 @@ describe('GitService', () => {
       'main',
       '--',
     ]);
+    expect(runGit).toHaveBeenNthCalledWith(2, '/repo', [
+      'log',
+      '--no-walk=unsorted',
+      '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
+      '--numstat',
+      '--no-renames',
+      '--end-of-options',
+      'hash-6',
+      'hash-7',
+      'hash-8',
+      '--',
+    ]);
+    expect(runGit).toHaveBeenCalledTimes(2);
   });
 
   it('reports whether an anchor is reachable from a branch', async () => {
@@ -246,8 +276,19 @@ describe('GitService', () => {
     ).resolves.toBe(false);
   });
 
-  it('does not hide operational failures while checking anchor reachability', async () => {
+  it('treats a missing commit as not reachable from the branch', async () => {
     const failure = new GitCommandFailedError(['merge-base'], 'fatal', 128);
+    const runGit = vi.fn<RunGit>(async () => {
+      throw failure;
+    });
+
+    await expect(
+      new GitService(runGit).isCommitOnBranch('/repo', 'main', 'anchor'),
+    ).resolves.toBe(false);
+  });
+
+  it('does not hide unexpected failures while checking anchor reachability', async () => {
+    const failure = new GitCommandFailedError(['merge-base'], 'fatal', 2);
     const runGit = vi.fn<RunGit>(async () => {
       throw failure;
     });
