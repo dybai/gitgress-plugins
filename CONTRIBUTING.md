@@ -116,6 +116,14 @@ history such as `fintech-service`):
 - [ ] Sticky selection: after a manual pick, switching editors does not change
       the active repo until you select again; without a manual pick, the active
       editor’s repo is preferred.
+- [ ] With **no** manual preference and **no** usable active file, after the
+      index scan is idle: if exactly one workspace folder path equals an
+      indexed root, that repo is selected; else if the index has exactly one
+      root, that repo is selected; otherwise Commits stays empty until
+      **Select Repository**.
+- [ ] Empty Commits copy: no indexed repos → "Open a folder containing a Git
+      repository."; indexed repos but none selected → "Select a repository to
+      view commits."
 - [ ] **Refresh** reloads history for the current repo but does not auto-switch
       to another indexed repository.
 
