@@ -155,6 +155,84 @@ export class GitService {
     return parseLog(stdout);
   }
 
+  /** Commits older than `commitId` (exclusive), in the same order as log(). */
+  async logOlderThan(
+    repoRoot: string,
+    _branch: string,
+    commitId: string,
+    limit: number,
+  ): Promise<CommitSummary[]> {
+    if (!Number.isInteger(limit) || limit <= 0) {
+      throw new RangeError('Git log limit must be a positive integer');
+    }
+    const { stdout } = await this.runGit(repoRoot, [
+      'log',
+      '-n',
+      String(limit + 1),
+      '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
+      '--numstat',
+      '--no-renames',
+      '--date-order',
+      '--end-of-options',
+      commitId,
+      '--',
+    ]);
+    const commits = parseLog(stdout);
+    const withoutAnchor = commits[0]?.id === commitId ? commits.slice(1) : commits;
+    return withoutAnchor.slice(0, limit);
+  }
+
+  /** Commits newer than `commitId` toward `branch` tip, in the same order as log(). */
+  async logNewerThan(
+    repoRoot: string,
+    branch: string,
+    commitId: string,
+    limit: number,
+  ): Promise<CommitSummary[]> {
+    if (!Number.isInteger(limit) || limit <= 0) {
+      throw new RangeError('Git log limit must be a positive integer');
+    }
+    const { stdout } = await this.runGit(repoRoot, [
+      'log',
+      '-n',
+      String(limit),
+      '--format=%x1e%H%x1f%P%x1f%s%x1f%an%x1f%aI%x1f%B%x1d',
+      '--numstat',
+      '--no-renames',
+      '--date-order',
+      '--not',
+      commitId,
+      '--not',
+      '--end-of-options',
+      branch,
+      '--',
+    ]);
+    return parseLog(stdout);
+  }
+
+  /** True if `commitId` is reachable from `branch`. */
+  async isCommitOnBranch(
+    repoRoot: string,
+    branch: string,
+    commitId: string,
+  ): Promise<boolean> {
+    try {
+      await this.runGit(repoRoot, [
+        'merge-base',
+        '--is-ancestor',
+        '--end-of-options',
+        commitId,
+        branch,
+      ]);
+      return true;
+    } catch (error) {
+      if (error instanceof GitCommandFailedError && error.exitCode === 1) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
   async changedFiles(repoRoot: string, commitId: string): Promise<ChangedFile[]> {
     // Disable rename detection for both outputs so their path keys stay identical.
     const commonArgs = [
