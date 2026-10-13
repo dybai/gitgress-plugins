@@ -46,3 +46,21 @@ describe('commits hover overlay assets', () => {
     expect(source).toMatch(/scheduleShowHover/);
   });
 });
+
+describe('commits window edge pagination', () => {
+  it('posts loadNewer and reads hasNewer near the top edge', () => {
+    expect(source).toMatch(/lastHasNewer/);
+    expect(source).toMatch(/loadNewerSent/);
+    expect(source).toMatch(/nearTop/);
+    expect(source).toMatch(/scrollTop\s*<\s*80/);
+    expect(source).toMatch(/type:\s*['"]loadNewer['"]/);
+    expect(source).toMatch(/data\.hasNewer/);
+  });
+
+  it('preserves scroll position when prepending commits', () => {
+    expect(source).toMatch(/isPrependingReplacement/);
+    expect(source).toMatch(
+      /scrollTop\s*=\s*savedScroll\.top\s*\+\s*\(\s*el\.scrollHeight\s*-\s*savedScroll\.height\s*\)/,
+    );
+  });
+});

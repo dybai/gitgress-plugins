@@ -28,7 +28,9 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
   const HOVER_SWITCH_DELAY_MS = 200;
   let lastPayload;
   let lastHasMore = false;
+  let lastHasNewer = false;
   let loadMoreSent = false;
+  let loadNewerSent = false;
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const MAX_LANES = 10;
@@ -464,6 +466,17 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
       (commit, index) => message.commits[index]?.id === commit.id,
     );
 
+  const isPrependingReplacement = (message) =>
+    message.mode === 'replace' &&
+    lastPayload?.branch === message.branch &&
+    message.commits.length > lastPayload.commits.length &&
+    lastPayload.commits.every(
+      (commit, index) =>
+        message.commits[
+          message.commits.length - lastPayload.commits.length + index
+        ]?.id === commit.id,
+    );
+
   const scrollContainer = () => document.scrollingElement || document.documentElement;
 
   const nearBottom = () => {
@@ -471,11 +484,20 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
     return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
   };
 
+  const nearTop = () => scrollContainer().scrollTop < 80;
+
   const maybeRequestLoadMore = () => {
     if (!lastHasMore || loadMoreSent) return;
     if (!nearBottom()) return;
     loadMoreSent = true;
     vscode.postMessage({ type: 'loadMore' });
+  };
+
+  const maybeRequestLoadNewer = () => {
+    if (!lastHasNewer || loadNewerSent) return;
+    if (!nearTop()) return;
+    loadNewerSent = true;
+    vscode.postMessage({ type: 'loadNewer' });
   };
 
   const showStatus = (message, retryable) => {
@@ -496,9 +518,16 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
 
   const renderCommits = (message) => {
     hideHover();
-    const savedScrollTop = isGrowingReplacement(message)
-      ? scrollContainer().scrollTop
-      : null;
+    const growing = isGrowingReplacement(message);
+    const prepending = isPrependingReplacement(message);
+    const savedScroll =
+      growing || prepending
+        ? {
+            top: scrollContainer().scrollTop,
+            height: scrollContainer().scrollHeight,
+            prepend: prepending,
+          }
+        : null;
     selectedButton = undefined;
     const root =
       typeof message.repoRoot === 'string' && message.repoRoot.length > 0
@@ -541,8 +570,14 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
     content.classList.remove('hidden');
     lastPayload = message;
     drawGraph(message);
-    if (savedScrollTop !== null) {
-      scrollContainer().scrollTop = savedScrollTop;
+    if (savedScroll !== null) {
+      const el = scrollContainer();
+      if (savedScroll.prepend) {
+        el.scrollTop =
+          savedScroll.top + (el.scrollHeight - savedScroll.height);
+      } else {
+        el.scrollTop = savedScroll.top;
+      }
     }
   };
 
@@ -557,9 +592,14 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
       positionHover();
       if (!nearBottom()) {
         loadMoreSent = false;
-        return;
+      } else {
+        maybeRequestLoadMore();
       }
-      maybeRequestLoadMore();
+      if (!nearTop()) {
+        loadNewerSent = false;
+      } else {
+        maybeRequestLoadNewer();
+      }
     },
     { passive: true },
   );
@@ -580,8 +620,11 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
     if (data.type === 'commitsLoaded' && Array.isArray(data.commits)) {
       renderCommits(data);
       lastHasMore = data.hasMore === true;
+      lastHasNewer = data.hasNewer === true;
       loadMoreSent = false;
+      loadNewerSent = false;
       maybeRequestLoadMore();
+      maybeRequestLoadNewer();
       return;
     }
     if (data.type === 'selectionCleared') {
@@ -591,7 +634,9 @@ import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
     }
     if (data.type === 'empty') {
       lastHasMore = false;
+      lastHasNewer = false;
       loadMoreSent = false;
+      loadNewerSent = false;
       const messages = {
         noRepo: 'Open a folder containing a Git repository.',
         noCommits: 'No commits found on this branch.',
