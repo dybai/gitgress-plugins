@@ -94,4 +94,60 @@ describe('selectRepository', () => {
 
     expect(selectManually).not.toHaveBeenCalled();
   });
+
+  it('shows workspace-folder basename instead of "." for the current root repo', async () => {
+    const showQuickPick = vi.fn(async () => undefined) as unknown as
+      typeof vscode.window.showQuickPick;
+    const selectManually = vi.fn();
+
+    await selectRepository({
+      roots: ['/ws/gitgress-plugins'],
+      currentRepoRoot: '/ws/gitgress-plugins',
+      workspaceFolderPaths: ['/ws/gitgress-plugins'],
+      showQuickPick,
+      selectManually,
+    });
+
+    expect(showQuickPick).toHaveBeenCalledWith(
+      [
+        {
+          label: 'gitgress-plugins',
+          description: 'Current repository',
+          repoRoot: '/ws/gitgress-plugins',
+        },
+      ],
+      { placeHolder: 'Select a repository' },
+    );
+    expect(selectManually).not.toHaveBeenCalled();
+  });
+
+  it('disambiguates colliding workspace-root basenames with parent/name', async () => {
+    const showQuickPick = vi.fn(async () => undefined) as unknown as
+      typeof vscode.window.showQuickPick;
+    const selectManually = vi.fn();
+
+    await selectRepository({
+      roots: ['/work/a/app', '/work/b/app'],
+      currentRepoRoot: '/work/a/app',
+      workspaceFolderPaths: ['/work/a/app', '/work/b/app'],
+      showQuickPick,
+      selectManually,
+    });
+
+    expect(showQuickPick).toHaveBeenCalledWith(
+      [
+        {
+          label: 'a/app',
+          description: 'Current repository',
+          repoRoot: '/work/a/app',
+        },
+        {
+          label: 'b/app',
+          description: undefined,
+          repoRoot: '/work/b/app',
+        },
+      ],
+      { placeHolder: 'Select a repository' },
+    );
+  });
 });

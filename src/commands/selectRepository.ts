@@ -1,12 +1,14 @@
 import path from 'node:path';
 import type * as vscode from 'vscode';
 import { findOwningRepoRoot, normalizeRepoPath } from '../repoIndex/pathNormalize.js';
+import { repoShortName } from '../views/commits/repoShortName.js';
 
 type RepoQuickPickItem = vscode.QuickPickItem & { repoRoot: string };
 
 function repoPickLabel(
   repoRoot: string,
   workspaceFolderPaths: readonly string[],
+  roots: readonly string[],
 ): string {
   const normalizedRepo = normalizeRepoPath(repoRoot);
   const owningFolder = findOwningRepoRoot(normalizedRepo, workspaceFolderPaths);
@@ -14,7 +16,7 @@ function repoPickLabel(
     return repoRoot;
   }
   const rel = path.relative(owningFolder, normalizedRepo).replace(/\\/g, '/');
-  return rel === '' ? '.' : rel;
+  return rel === '' ? repoShortName(repoRoot, roots) : rel;
 }
 
 export async function selectRepository(options: {
@@ -42,7 +44,7 @@ export async function selectRepository(options: {
   const items: RepoQuickPickItem[] = roots.map((root) => {
     const normalized = normalizeRepoPath(root);
     return {
-      label: repoPickLabel(root, workspaceFolderPaths),
+      label: repoPickLabel(root, workspaceFolderPaths, roots),
       description:
         normalizedCurrent !== null && normalized === normalizedCurrent
           ? 'Current repository'
