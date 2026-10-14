@@ -2,6 +2,13 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.11
+
+- Select Repository Quick Pick shows the workspace folder short name for the
+  current workspace-root repo instead of `.`, and keeps the
+  `Current repository` marker. Colliding basenames are disambiguated as
+  `parent/name` (same short-name rules as the Commits header).
+
 ## 1.0.10
 
 - After the repo index scan finishes, Commits auto-selects a default repository
