@@ -11,24 +11,40 @@ describe('package contributes', () => {
     expect(files!.type).toBe('webview');
   });
 
-  it('registers select repository command and title-bar menu when repos exist', () => {
+  it('keeps select/switch commands but not in the view title bar', () => {
     const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
-    const command = pkg.contributes.commands.find(
-      (c: { command: string }) => c.command === 'gitgress.selectRepository',
-    );
-    expect(command).toEqual({
+
+    expect(
+      pkg.contributes.commands.find(
+        (c: { command: string }) => c.command === 'gitgress.selectRepository',
+      ),
+    ).toEqual({
       command: 'gitgress.selectRepository',
       title: 'GitGress: Select Repository',
       icon: '$(repo)',
     });
 
-    const menu = pkg.contributes.menus['view/title'].find(
-      (m: { command: string }) => m.command === 'gitgress.selectRepository',
-    );
-    expect(menu).toMatchObject({
-      command: 'gitgress.selectRepository',
-      when: 'view == gitgress.commits && gitgress.hasRepositories',
-      group: 'navigation',
+    expect(
+      pkg.contributes.commands.find(
+        (c: { command: string }) => c.command === 'gitgress.switchBranch',
+      ),
+    ).toEqual({
+      command: 'gitgress.switchBranch',
+      title: 'GitGress: Switch Branch',
+      icon: '$(git-branch)',
     });
+
+    const titleMenus: Array<{ command: string }> = pkg.contributes.menus['view/title'];
+    expect(titleMenus.some((m) => m.command === 'gitgress.selectRepository')).toBe(false);
+    expect(titleMenus.some((m) => m.command === 'gitgress.switchBranch')).toBe(false);
+    expect(titleMenus).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          command: 'gitgress.refresh',
+          when: 'view == gitgress.commits || view == gitgress.files',
+          group: 'navigation',
+        }),
+      ]),
+    );
   });
 });

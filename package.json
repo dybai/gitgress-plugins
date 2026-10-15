@@ -2,7 +2,7 @@
   "name": "gitgress",
   "displayName": "GitGress",
   "description": "Multi-lane commit graph, paginated history, changed files, and parent-commit diffs",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "publisher": "dybai",
   "license": "MIT",
   "icon": "media/gitgress-icon.png",
@@ -87,16 +87,6 @@
         }
       ],
       "view/title": [
-        {
-          "command": "gitgress.selectRepository",
-          "when": "view == gitgress.commits && gitgress.hasRepositories",
-          "group": "navigation"
-        },
-        {
-          "command": "gitgress.switchBranch",
-          "when": "view == gitgress.commits",
-          "group": "navigation"
-        },
         {
           "command": "gitgress.refresh",
           "when": "view == gitgress.commits || view == gitgress.files",
