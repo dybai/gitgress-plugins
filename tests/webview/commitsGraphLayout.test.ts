@@ -47,6 +47,41 @@ describe('commits hover overlay assets', () => {
   });
 });
 
+describe('commits sticky chrome', () => {
+  it('keeps scan progress and branch header outside a dedicated list scroller', () => {
+    expect(html).toMatch(
+      /id="scan-progress"[\s\S]*class="branch-header"[\s\S]*id="commit-scroll"[\s\S]*id="commit-list"/,
+    );
+    expect(html).not.toMatch(
+      /id="commit-scroll"[\s\S]*class="branch-header"/,
+    );
+  });
+
+  it('fills the webview with flex layout and scrolls only the commit region', () => {
+    expect(css).toMatch(/html\s*,\s*body[\s\S]*?height:\s*100%/);
+    expect(css).toMatch(/body\s*\{[\s\S]*?overflow:\s*hidden/);
+    expect(css).toMatch(/main\s*\{[\s\S]*?display:\s*flex/);
+    expect(css).toMatch(/\.content\s*\{[\s\S]*?flex:\s*1/);
+    expect(css).toMatch(/\.commit-scroll\s*\{[\s\S]*?overflow:\s*auto/);
+  });
+
+  it('owns list scroll on #commit-scroll for pagination, anchoring, and page keys', () => {
+    expect(source).toMatch(
+      /scrollContainer\s*=\s*\(\)\s*=>\s*document\.querySelector\(['"]#commit-scroll['"]\)/,
+    );
+    expect(source).toMatch(
+      /scrollContainer\(\)\.addEventListener\(\s*['"]scroll['"]/,
+    );
+    expect(source).toMatch(
+      /scrollContainer\(\)\.getBoundingClientRect\(\)/,
+    );
+    expect(source).toMatch(/scrollContainer\(\)\.clientHeight/);
+    expect(source).not.toMatch(
+      /scrollContainer\s*=\s*\(\)\s*=>\s*document\.scrollingElement/,
+    );
+  });
+});
+
 describe('commits window edge pagination', () => {
   it('posts loadNewer and reads hasNewer near the top edge', () => {
     expect(source).toMatch(/lastHasNewer/);

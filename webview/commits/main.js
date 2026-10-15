@@ -463,7 +463,7 @@ import {
     svg.replaceChildren(edges, nodes);
   };
 
-  const scrollContainer = () => document.scrollingElement || document.documentElement;
+  const scrollContainer = () => document.querySelector('#commit-scroll');
 
   const captureScrollAnchor = (message) => {
     if (message.mode !== 'replace') return null;
@@ -480,11 +480,12 @@ import {
         };
       })
       .filter((row) => typeof row.id === 'string');
+    const viewport = scrollContainer().getBoundingClientRect();
     const id = chooseScrollAnchorId(
       message.selectedCommitId,
       rows,
-      0,
-      window.innerHeight,
+      viewport.top,
+      viewport.bottom,
     );
     if (id === null) return null;
 
@@ -506,6 +507,7 @@ import {
     if (!(button instanceof HTMLButtonElement)) return false;
 
     const el = scrollContainer();
+    if (!(el instanceof HTMLElement)) return false;
     const nextScrollTop = anchoredScrollTop(
       anchor.scrollTop,
       anchor.top,
@@ -518,10 +520,14 @@ import {
 
   const nearBottom = () => {
     const el = scrollContainer();
+    if (!(el instanceof HTMLElement)) return false;
     return el.scrollHeight - el.scrollTop - el.clientHeight < 80;
   };
 
-  const nearTop = () => scrollContainer().scrollTop < 80;
+  const nearTop = () => {
+    const el = scrollContainer();
+    return el instanceof HTMLElement && el.scrollTop < 80;
+  };
 
   const maybeRequestLoadMore = () => {
     if (!lastHasMore || loadMoreSent) return;
@@ -606,7 +612,7 @@ import {
   });
   resizeObserver.observe(commitList);
 
-  window.addEventListener(
+  scrollContainer().addEventListener(
     'scroll',
     () => {
       positionHover();
@@ -719,8 +725,7 @@ import {
       (row instanceof HTMLElement ? row.offsetHeight : 0) ||
       selectedButton.offsetHeight ||
       0;
-    const viewportHeight =
-      (document.scrollingElement || document.documentElement).clientHeight;
+    const viewportHeight = scrollContainer().clientHeight;
     const pageStep = computePageStep(viewportHeight, rowHeight);
     const nextIndex = nextCommitIndex(currentIndex, event.key, {
       length: buttons.length,
