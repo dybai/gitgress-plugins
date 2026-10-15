@@ -29,9 +29,10 @@ import {
   const status = document.querySelector('#status');
   const content = document.querySelector('#content');
   const repoName = document.querySelector('#repo-name');
+  const repoLabel = document.querySelector('#repo-label');
   const branchName = document.querySelector('#branch-name');
+  const branchSwitch = document.querySelector('#branch-switch');
   const commitList = document.querySelector('#commit-list');
-  const switchBranch = document.querySelector('#switch-branch');
   const hoverCard = document.querySelector('#hover-card');
   let selectedButton;
   let hoveredButton;
@@ -640,11 +641,11 @@ import {
     if (repoName instanceof HTMLButtonElement) {
       if (root) {
         repoName.hidden = false;
-        repoName.textContent = repoShortName(root, []);
+        if (repoLabel) repoLabel.textContent = repoShortName(root, []);
         repoName.title = root;
       } else {
         repoName.hidden = true;
-        repoName.textContent = '';
+        if (repoLabel) repoLabel.textContent = '';
         repoName.title = '';
       }
     }
@@ -766,9 +767,11 @@ import {
     }
   });
 
-  switchBranch.addEventListener('click', () => {
-    vscode.postMessage({ type: 'switchBranch' });
-  });
+  if (branchSwitch instanceof HTMLButtonElement) {
+    branchSwitch.addEventListener('click', () => {
+      vscode.postMessage({ type: 'switchBranch' });
+    });
+  }
 
   if (repoName instanceof HTMLButtonElement) {
     repoName.addEventListener('click', () => {

@@ -75,15 +75,17 @@ button {
   letter-spacing: 0.04em;
 }
 
-.branch-icon {
-  width: 8px;
-  height: 8px;
-  border: 2px solid var(--vscode-gitDecoration-addedResourceForeground);
-  border-radius: 50%;
+.header-codicon {
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
+  display: block;
 }
 
 .repo-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   max-width: 40%;
   min-width: 0;
   margin: 0;
@@ -98,12 +100,42 @@ button {
   font-weight: 600;
   letter-spacing: normal;
   text-align: left;
-  text-overflow: ellipsis;
   text-transform: none;
-  white-space: nowrap;
 }
 
 .repo-name:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+#repo-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: normal;
+}
+
+.branch-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin: 0;
+  padding: 2px 4px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 3px;
+  color: var(--vscode-textLink-foreground);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+}
+
+.branch-switch:hover {
   background: var(--vscode-toolbar-hoverBackground);
 }
 
@@ -112,12 +144,10 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  text-transform: none;
   letter-spacing: normal;
 }
 
 .quiet-button {
-  margin-left: auto;
   padding: 2px 6px;
   border: 0;
   border-radius: 3px;
