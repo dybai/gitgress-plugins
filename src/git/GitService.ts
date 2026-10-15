@@ -81,31 +81,37 @@ export class GitService {
 
   async listTips(
     repoRoot: string,
-  ): Promise<Array<{ name: string; kind: 'local' | 'remote'; commitId: string }>> {
+  ): Promise<Array<{ name: string; kind: 'local' | 'remote' | 'tag'; commitId: string }>> {
     const { stdout } = await this.runGit(repoRoot, [
       'for-each-ref',
-      '--format=%(objectname) %(refname) %(refname:short)',
+      '--format=%(objectname) %(*objectname) %(refname) %(refname:short)',
       'refs/heads',
       'refs/remotes',
+      'refs/tags',
     ]);
-    const tips: Array<{ name: string; kind: 'local' | 'remote'; commitId: string }> = [];
+    const tips: Array<{ name: string; kind: 'local' | 'remote' | 'tag'; commitId: string }> = [];
+    const refPrefix = /refs\/(?:heads|remotes|tags)\//;
     for (const line of stdout.split(/\r?\n/)) {
       const trimmed = line.trim();
       if (trimmed === '') {
         continue;
       }
-      const firstSpace = trimmed.indexOf(' ');
-      if (firstSpace <= 0) {
+      const refMatch = trimmed.match(refPrefix);
+      if (!refMatch || refMatch.index === undefined) {
         continue;
       }
-      const commitId = trimmed.slice(0, firstSpace);
-      const rest = trimmed.slice(firstSpace + 1).trim();
-      const secondSpace = rest.indexOf(' ');
-      if (secondSpace <= 0) {
+      const beforeRef = trimmed.slice(0, refMatch.index).trim();
+      const afterRefStart = trimmed.slice(refMatch.index);
+      const afterParts = afterRefStart.split(/\s+/);
+      if (afterParts.length < 2) {
         continue;
       }
-      const refname = rest.slice(0, secondSpace);
-      const name = rest.slice(secondSpace + 1).trim();
+      const refname = afterParts[0]!;
+      const name = afterParts.slice(1).join(' ').trim();
+      const shaTokens = beforeRef.split(/\s+/).filter((t) => t !== '');
+      const objectname = shaTokens[0] ?? '';
+      const peeled = shaTokens[1] ?? '';
+      const commitId = peeled !== '' ? peeled : objectname;
       if (commitId === '' || name === '') {
         continue;
       }
@@ -113,11 +119,13 @@ export class GitService {
       if (refname.startsWith('refs/remotes/') && refname.endsWith('/HEAD')) {
         continue;
       }
-      let kind: 'local' | 'remote';
+      let kind: 'local' | 'remote' | 'tag';
       if (refname.startsWith('refs/heads/')) {
         kind = 'local';
       } else if (refname.startsWith('refs/remotes/')) {
         kind = 'remote';
+      } else if (refname.startsWith('refs/tags/')) {
+        kind = 'tag';
       } else {
         continue;
       }

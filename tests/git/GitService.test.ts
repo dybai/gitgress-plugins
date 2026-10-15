@@ -66,14 +66,16 @@ describe('GitService', () => {
     await expect(new GitService(runGit).resolveTip('/repo', 'missing')).resolves.toBeNull();
   });
 
-  it('lists local and remote tips and skips remote HEAD', async () => {
+  it('lists local, remote, and peeled tag tips', async () => {
     const runGit = vi.fn<RunGit>(async () => ({
       stdout: [
-        'aaa refs/heads/main main',
-        'bbb refs/heads/feature/x feature/x',
-        'ccc refs/remotes/origin/main origin/main',
-        // git shortens refs/remotes/origin/HEAD to "origin", not "origin/HEAD"
-        'ddd refs/remotes/origin/HEAD origin',
+        // objectname *objectname refname short
+        'aaa  refs/heads/main main',
+        'bbb  refs/heads/feature/x feature/x',
+        'ccc  refs/remotes/origin/main origin/main',
+        'ddd  refs/remotes/origin/HEAD origin',
+        'tagobj commitsha refs/tags/v1.2.0 v1.2.0',
+        'lightsha  refs/tags/lightweight lightweight',
         '',
       ].join('\n'),
       stderr: '',
@@ -83,12 +85,15 @@ describe('GitService', () => {
       { name: 'main', kind: 'local', commitId: 'aaa' },
       { name: 'feature/x', kind: 'local', commitId: 'bbb' },
       { name: 'origin/main', kind: 'remote', commitId: 'ccc' },
+      { name: 'v1.2.0', kind: 'tag', commitId: 'commitsha' },
+      { name: 'lightweight', kind: 'tag', commitId: 'lightsha' },
     ]);
     expect(runGit).toHaveBeenCalledWith('/repo', [
       'for-each-ref',
-      '--format=%(objectname) %(refname) %(refname:short)',
+      '--format=%(objectname) %(*objectname) %(refname) %(refname:short)',
       'refs/heads',
       'refs/remotes',
+      'refs/tags',
     ]);
   });
 
