@@ -1,31 +1,38 @@
 import { describe, expect, it, vi } from 'vitest';
 import type * as vscode from 'vscode';
 import { pickBranch, switchBranch } from '../../src/commands/switchBranch';
+import { createFakeCreateQuickPick } from '../helpers/fakeCreateQuickPick';
+
+const checkIcon = { id: 'check' } as vscode.ThemeIcon;
 
 describe('pickBranch', () => {
-  it('marks the current branch and returns the selected branch label', async () => {
-    const showQuickPick = vi.fn(async () => ({
-      label: 'feature/work',
-      description: undefined,
-    })) as unknown as typeof vscode.window.showQuickPick;
+  it('marks the current branch with check, pre-focuses it, and returns selection', async () => {
+    const { createQuickPick, quickPick, triggerAccept } = createFakeCreateQuickPick();
 
-    await expect(
-      pickBranch(['main', 'feature/work'], 'main', showQuickPick),
-    ).resolves.toBe('feature/work');
-    expect(showQuickPick).toHaveBeenCalledWith(
-      [
-        { label: 'main', description: 'Current branch' },
-        { label: 'feature/work', description: undefined },
-      ],
-      { placeHolder: 'Select a branch' },
+    const pending = pickBranch(
+      ['main', 'feature/work'],
+      'main',
+      createQuickPick,
+      () => checkIcon,
     );
+
+    expect(quickPick.placeholder).toBe('Select a branch');
+    expect(quickPick.items).toEqual([
+      { label: 'main', description: 'Current branch', iconPath: checkIcon },
+      { label: 'feature/work', description: undefined, iconPath: undefined },
+    ]);
+    expect(quickPick.activeItems).toEqual([quickPick.items[0]]);
+
+    quickPick.selectedItems = [quickPick.items[1]];
+    triggerAccept();
+    await expect(pending).resolves.toBe('feature/work');
   });
 
   it('returns undefined when the picker is cancelled', async () => {
-    const showQuickPick = vi.fn(async () => undefined) as unknown as
-      typeof vscode.window.showQuickPick;
-
-    await expect(pickBranch(['main'], 'main', showQuickPick)).resolves.toBeUndefined();
+    const { createQuickPick, triggerHide } = createFakeCreateQuickPick();
+    const pending = pickBranch(['main'], 'main', createQuickPick, () => checkIcon);
+    triggerHide();
+    await expect(pending).resolves.toBeUndefined();
   });
 
   it('lists branches and updates selection when a branch is chosen', async () => {
@@ -40,11 +47,18 @@ describe('pickBranch', () => {
       })),
       setBranch: vi.fn(),
     };
-    const showQuickPick = vi.fn(async () => ({
-      label: 'feature/work',
-    })) as unknown as typeof vscode.window.showQuickPick;
+    const { createQuickPick, quickPick, triggerAccept } = createFakeCreateQuickPick();
 
-    await switchBranch(gitService, selection, showQuickPick);
+    const pending = switchBranch(
+      gitService,
+      selection,
+      createQuickPick,
+      () => checkIcon,
+    );
+    await vi.waitFor(() => expect(quickPick.items).toHaveLength(2));
+    quickPick.selectedItems = [quickPick.items[1]];
+    triggerAccept();
+    await pending;
 
     expect(gitService.listBranches).toHaveBeenCalledWith('/repo');
     expect(selection.setBranch).toHaveBeenCalledWith('feature/work');
@@ -62,11 +76,18 @@ describe('pickBranch', () => {
       })),
       setBranch: vi.fn(),
     };
-    const showQuickPick = vi.fn(async () => ({
-      label: 'main',
-    })) as unknown as typeof vscode.window.showQuickPick;
+    const { createQuickPick, quickPick, triggerAccept } = createFakeCreateQuickPick();
 
-    await switchBranch(gitService, selection, showQuickPick);
+    const pending = switchBranch(
+      gitService,
+      selection,
+      createQuickPick,
+      () => checkIcon,
+    );
+    await vi.waitFor(() => expect(quickPick.items).toHaveLength(2));
+    quickPick.selectedItems = [quickPick.items[0]];
+    triggerAccept();
+    await pending;
 
     expect(selection.setBranch).not.toHaveBeenCalled();
   });
@@ -81,12 +102,12 @@ describe('pickBranch', () => {
       })),
       setBranch: vi.fn(),
     };
-    const showQuickPick = vi.fn() as unknown as typeof vscode.window.showQuickPick;
+    const { createQuickPick } = createFakeCreateQuickPick();
 
-    await switchBranch(gitService, selection, showQuickPick);
+    await switchBranch(gitService, selection, createQuickPick, () => checkIcon);
 
     expect(gitService.listBranches).not.toHaveBeenCalled();
-    expect(showQuickPick).not.toHaveBeenCalled();
+    expect(createQuickPick).not.toHaveBeenCalled();
     expect(selection.setBranch).not.toHaveBeenCalled();
   });
 });

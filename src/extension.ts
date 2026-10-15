@@ -263,7 +263,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     registerOpenFileDiff(selection, diffService),
     vscode.commands.registerCommand('gitgress.switchBranch', async () => {
       try {
-        await switchBranch(gitService, selection, vscode.window.showQuickPick);
+        await switchBranch(
+          gitService,
+          selection,
+          vscode.window.createQuickPick,
+          () => new vscode.ThemeIcon('check'),
+        );
       } catch (error) {
         await showError(error);
       }
