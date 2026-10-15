@@ -201,6 +201,8 @@ button {
 }
 
 .commit-copy {
+  position: relative;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   gap: 2px;

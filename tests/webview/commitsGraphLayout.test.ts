@@ -21,10 +21,21 @@ describe('commits graph DOM layout', () => {
     expect(source).not.toMatch(/const height = commitList\.scrollHeight/);
   });
 
-  it('routes fork edges horizontally through their allocated lane', () => {
+  it('routes fork edges through viaLane with rounded corner helper', () => {
     expect(source).toMatch(/const viaX = laneX\(edge\.viaLane\)/);
     expect(source).toMatch(
-      /M \$\{fromX\} \$\{fromY\} H \$\{viaX\} V \$\{toY\} H \$\{toX\}/,
+      /roundedEdgePath\(fromX, fromY, viaX, toX, toY, CORNER_RADIUS\)/,
+    );
+  });
+
+  it('sets per-row graph gutter from occupied lanes instead of global laneCount', () => {
+    expect(source).toMatch(/occupiedLaneMaxForRow\(row, message\.commits, message\.edges\)/);
+    expect(source).toMatch(/rowGraphWidth\(/);
+    expect(source).toMatch(
+      /button\.style\.setProperty\(\s*['"]--graph-width['"]/,
+    );
+    expect(source).not.toMatch(
+      /commitList\.style\.setProperty\(\s*['"]--graph-width['"]/,
     );
   });
 });

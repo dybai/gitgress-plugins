@@ -16,6 +16,14 @@ import {
   anchoredScrollTop,
   chooseScrollAnchorId,
 } from './scrollAnchor.js';
+import {
+  CORNER_RADIUS,
+  graphWidth,
+  laneX,
+  occupiedLaneMaxForRow,
+  roundedEdgePath,
+  rowGraphWidth,
+} from './graphDraw.js';
 
   const vscode = acquireVsCodeApi();
   const status = document.querySelector('#status');
@@ -45,8 +53,6 @@ import {
   });
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
-  const MAX_LANES = 10;
-  const LANE_WIDTH = 14;
   const PALETTE = [
     'var(--vscode-gitDecoration-modifiedResourceForeground)',
     'var(--vscode-gitDecoration-addedResourceForeground)',
@@ -65,12 +71,6 @@ import {
     }
     return element;
   };
-
-  const laneX = (lane) =>
-    (Math.min(Math.max(0, lane), MAX_LANES - 1) + 0.5) * LANE_WIDTH;
-
-  const graphWidth = (laneCount) =>
-    Math.max(1, Math.min(laneCount, MAX_LANES)) * LANE_WIDTH;
 
   const edgeColor = (colorIndex) =>
     PALETTE[Math.abs(colorIndex) % PALETTE.length];
@@ -417,7 +417,7 @@ import {
     return aria;
   };
 
-  const createCommit = (commit, message) => {
+  const createCommit = (commit, message, row) => {
     const item = document.createElement('li');
     item.className = 'commit';
 
@@ -432,6 +432,10 @@ import {
     button.className = 'commit-button';
     button.type = 'button';
     button.dataset.commitId = commit.id;
+    button.style.setProperty(
+      '--graph-width',
+      `${rowGraphWidth(occupiedLaneMaxForRow(row, message.commits, message.edges))}px`,
+    );
 
     const graphCell = document.createElement('span');
     graphCell.className = 'graph-cell';
@@ -506,10 +510,7 @@ import {
       const toX = laneX(edge.toLane);
       const path = svgElement('path', {
         class: edge.truncated ? 'graph-edge graph-edge-truncated' : 'graph-edge',
-        d:
-          fromX === viaX && viaX === toX
-            ? `M ${fromX} ${fromY} V ${toY}`
-            : `M ${fromX} ${fromY} H ${viaX} V ${toY} H ${toX}`,
+        d: roundedEdgePath(fromX, fromY, viaX, toX, toY, CORNER_RADIUS),
       });
       path.style.stroke = edgeColor(edge.colorIndex);
       edges.append(path);
@@ -648,8 +649,6 @@ import {
       }
     }
     branchName.textContent = message.branch;
-    const width = graphWidth(message.laneCount);
-    commitList.style.setProperty('--graph-width', `${width}px`);
     const svg = svgElement('svg', {
       class: 'commit-graph',
       'aria-hidden': 'true',
@@ -657,7 +656,7 @@ import {
     });
     commitList.replaceChildren(
       svg,
-      ...message.commits.map((commit) => createCommit(commit, message)),
+      ...message.commits.map((commit, row) => createCommit(commit, message, row)),
     );
     const selectedId = message.selectedCommitId;
     if (typeof selectedId === 'string' && selectedId.length > 0) {
