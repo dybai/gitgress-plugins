@@ -2,7 +2,7 @@ import type { CommitRefDto } from '../../protocol/messages';
 
 export type TipRef = {
   name: string;
-  kind: 'local' | 'remote';
+  kind: 'local' | 'remote' | 'tag';
   commitId: string;
 };
 
@@ -20,7 +20,10 @@ export function attachCommitRefs(
   const tipCommitIds: string[] = [];
   for (const id of commitIds) {
     const refs = refsById.get(id);
-    if (refs !== undefined && refs.length > 0) {
+    if (
+      refs !== undefined &&
+      refs.some((ref) => ref.kind === 'local' || ref.kind === 'remote')
+    ) {
       tipCommitIds.push(id);
     }
   }
@@ -90,4 +93,18 @@ export function secondaryRefs(
     }
     return true;
   });
+}
+
+/** Tags (name asc) then remaining branch secondaries from {@link secondaryRefs}. */
+export function orderedSecondaryRefs(
+  refs: readonly CommitRefDto[],
+  primary: CommitRefDto,
+  foldedRemote: string | null,
+): CommitRefDto[] {
+  const secondaries = secondaryRefs(refs, primary, foldedRemote);
+  const tags = secondaries
+    .filter((ref) => ref.kind === 'tag')
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const branches = secondaries.filter((ref) => ref.kind !== 'tag');
+  return [...tags, ...branches];
 }
