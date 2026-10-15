@@ -20,7 +20,7 @@ describe('pickBranch', () => {
 
     expect(quickPick.placeholder).toBe('Select a branch');
     expect(quickPick.items).toEqual([
-      { label: 'main', description: '[Current branch]', iconPath: checkIcon },
+      { label: 'main', description: '[ Current branch ]', iconPath: checkIcon },
       { label: 'feature/work', description: undefined, iconPath: blankIcon },
     ]);
     expect(quickPick.activeItems).toEqual([quickPick.items[0]]);

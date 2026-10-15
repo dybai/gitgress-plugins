@@ -51,7 +51,7 @@ export async function selectRepository(options: {
     const isCurrent = normalizedCurrent !== null && normalized === normalizedCurrent;
     return {
       label: repoPickLabel(root, workspaceFolderPaths, roots),
-      description: isCurrent ? '[Current repository]' : undefined,
+      description: isCurrent ? '[ Current repository ]' : undefined,
       iconPath: isCurrent ? createCheckIcon() : createBlankIcon(),
       repoRoot: root,
     };

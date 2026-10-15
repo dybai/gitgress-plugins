@@ -2,6 +2,14 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.17
+
+- Select Repository and Switch Branch Quick Picks mark the current item with a
+  left check icon and a bracketed marker (`[ Current repository ]` /
+  `[ Current branch ]`). Other rows use a blank icon so labels stay left-aligned.
+- Opening either picker pre-focuses the current item without reordering the list
+  (Enter keeps the current choice). Shared `createQuickPick` helper powers both.
+
 ## 1.0.15
 
 - Commits keeps scan progress and the branch header fixed; only the commit

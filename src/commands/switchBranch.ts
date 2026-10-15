@@ -12,7 +12,7 @@ export async function pickBranch(
 ): Promise<string | undefined> {
   const items: vscode.QuickPickItem[] = branches.map((branch) => ({
     label: branch,
-    description: branch === current ? '[Current branch]' : undefined,
+    description: branch === current ? '[ Current branch ]' : undefined,
     iconPath: branch === current ? createCheckIcon() : createBlankIcon(),
   }));
   const activeItem = items.find((item) => item.label === current);

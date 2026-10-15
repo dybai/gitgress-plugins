@@ -48,7 +48,7 @@ describe('selectRepository', () => {
     expect(quickPick.items).toEqual([
       {
         label: 'api',
-        description: '[Current repository]',
+        description: '[ Current repository ]',
         iconPath: checkIcon,
         repoRoot: '/ws/apps/api',
       },
@@ -135,7 +135,7 @@ describe('selectRepository', () => {
     expect(quickPick.items).toEqual([
       {
         label: 'gitgress-plugins',
-        description: '[Current repository]',
+        description: '[ Current repository ]',
         iconPath: checkIcon,
         repoRoot: '/ws/gitgress-plugins',
       },
@@ -164,7 +164,7 @@ describe('selectRepository', () => {
     expect(quickPick.items).toEqual([
       {
         label: 'a/app',
-        description: '[Current repository]',
+        description: '[ Current repository ]',
         iconPath: checkIcon,
         repoRoot: '/work/a/app',
       },
