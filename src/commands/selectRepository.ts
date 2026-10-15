@@ -26,6 +26,7 @@ export async function selectRepository(options: {
   workspaceFolderPaths: readonly string[];
   createQuickPick: typeof vscode.window.createQuickPick;
   createCheckIcon: () => vscode.ThemeIcon;
+  createBlankIcon: () => vscode.ThemeIcon;
   selectManually: (repoRoot: string) => void;
 }): Promise<void> {
   const {
@@ -34,6 +35,7 @@ export async function selectRepository(options: {
     workspaceFolderPaths,
     createQuickPick,
     createCheckIcon,
+    createBlankIcon,
     selectManually,
   } = options;
 
@@ -49,8 +51,8 @@ export async function selectRepository(options: {
     const isCurrent = normalizedCurrent !== null && normalized === normalizedCurrent;
     return {
       label: repoPickLabel(root, workspaceFolderPaths, roots),
-      description: isCurrent ? 'Current repository' : undefined,
-      iconPath: isCurrent ? createCheckIcon() : undefined,
+      description: isCurrent ? '[Current repository]' : undefined,
+      iconPath: isCurrent ? createCheckIcon() : createBlankIcon(),
       repoRoot: root,
     };
   });

@@ -8,11 +8,12 @@ export async function pickBranch(
   current: string | null,
   createQuickPick: typeof vscode.window.createQuickPick,
   createCheckIcon: () => vscode.ThemeIcon,
+  createBlankIcon: () => vscode.ThemeIcon,
 ): Promise<string | undefined> {
   const items: vscode.QuickPickItem[] = branches.map((branch) => ({
     label: branch,
-    description: branch === current ? 'Current branch' : undefined,
-    iconPath: branch === current ? createCheckIcon() : undefined,
+    description: branch === current ? '[Current branch]' : undefined,
+    iconPath: branch === current ? createCheckIcon() : createBlankIcon(),
   }));
   const activeItem = items.find((item) => item.label === current);
   const selected = await showQuickPickActive({
@@ -29,6 +30,7 @@ export async function switchBranch(
   selection: Pick<SelectionState, 'getSnapshot' | 'setBranch'>,
   createQuickPick: typeof vscode.window.createQuickPick,
   createCheckIcon: () => vscode.ThemeIcon,
+  createBlankIcon: () => vscode.ThemeIcon,
 ): Promise<void> {
   const { repoRoot, branch } = selection.getSnapshot();
   if (repoRoot === null) {
@@ -41,6 +43,7 @@ export async function switchBranch(
     branch,
     createQuickPick,
     createCheckIcon,
+    createBlankIcon,
   );
   if (selected !== undefined && selected !== branch) {
     selection.setBranch(selected);

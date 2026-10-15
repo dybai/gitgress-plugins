@@ -4,6 +4,7 @@ import { selectRepository } from '../../src/commands/selectRepository';
 import { createFakeCreateQuickPick } from '../helpers/fakeCreateQuickPick';
 
 const checkIcon = { id: 'check' } as vscode.ThemeIcon;
+const blankIcon = { id: 'blank' } as vscode.ThemeIcon;
 
 describe('selectRepository', () => {
   it('does nothing when there are no indexed roots', async () => {
@@ -16,6 +17,7 @@ describe('selectRepository', () => {
       workspaceFolderPaths: ['/ws'],
       createQuickPick,
       createCheckIcon: () => checkIcon,
+      createBlankIcon: () => blankIcon,
       selectManually,
     });
 
@@ -23,7 +25,7 @@ describe('selectRepository', () => {
     expect(selectManually).not.toHaveBeenCalled();
   });
 
-  it('marks current with check icon, pre-focuses it, and selects manually', async () => {
+  it('marks current with check icon, blank-aligns others, pre-focuses, and selects', async () => {
     const { createQuickPick, quickPick, triggerAccept } = createFakeCreateQuickPick<{
       label: string;
       description?: string;
@@ -38,6 +40,7 @@ describe('selectRepository', () => {
       workspaceFolderPaths: ['/ws', '/ws/apps'],
       createQuickPick,
       createCheckIcon: () => checkIcon,
+      createBlankIcon: () => blankIcon,
       selectManually,
     });
 
@@ -45,14 +48,14 @@ describe('selectRepository', () => {
     expect(quickPick.items).toEqual([
       {
         label: 'api',
-        description: 'Current repository',
+        description: '[Current repository]',
         iconPath: checkIcon,
         repoRoot: '/ws/apps/api',
       },
       {
         label: 'other',
         description: undefined,
-        iconPath: undefined,
+        iconPath: blankIcon,
         repoRoot: '/ws/other',
       },
     ]);
@@ -75,6 +78,7 @@ describe('selectRepository', () => {
       workspaceFolderPaths: ['/ws'],
       createQuickPick,
       createCheckIcon: () => checkIcon,
+      createBlankIcon: () => blankIcon,
       selectManually,
     });
 
@@ -82,7 +86,7 @@ describe('selectRepository', () => {
       {
         label: '/standalone/repo',
         description: undefined,
-        iconPath: undefined,
+        iconPath: blankIcon,
         repoRoot: '/standalone/repo',
       },
     ]);
@@ -104,6 +108,7 @@ describe('selectRepository', () => {
       workspaceFolderPaths: ['/ws'],
       createQuickPick,
       createCheckIcon: () => checkIcon,
+      createBlankIcon: () => blankIcon,
       selectManually,
     });
 
@@ -123,13 +128,14 @@ describe('selectRepository', () => {
       workspaceFolderPaths: ['/ws/gitgress-plugins'],
       createQuickPick,
       createCheckIcon: () => checkIcon,
+      createBlankIcon: () => blankIcon,
       selectManually,
     });
 
     expect(quickPick.items).toEqual([
       {
         label: 'gitgress-plugins',
-        description: 'Current repository',
+        description: '[Current repository]',
         iconPath: checkIcon,
         repoRoot: '/ws/gitgress-plugins',
       },
@@ -151,20 +157,21 @@ describe('selectRepository', () => {
       workspaceFolderPaths: ['/work/a/app', '/work/b/app'],
       createQuickPick,
       createCheckIcon: () => checkIcon,
+      createBlankIcon: () => blankIcon,
       selectManually,
     });
 
     expect(quickPick.items).toEqual([
       {
         label: 'a/app',
-        description: 'Current repository',
+        description: '[Current repository]',
         iconPath: checkIcon,
         repoRoot: '/work/a/app',
       },
       {
         label: 'b/app',
         description: undefined,
-        iconPath: undefined,
+        iconPath: blankIcon,
         repoRoot: '/work/b/app',
       },
     ]);

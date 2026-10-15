@@ -268,6 +268,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           selection,
           vscode.window.createQuickPick,
           () => new vscode.ThemeIcon('check'),
+          () => new vscode.ThemeIcon('blank'),
         );
       } catch (error) {
         await showError(error);
@@ -281,6 +282,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           workspaceFolderPaths: workspaceRoots(),
           createQuickPick: vscode.window.createQuickPick,
           createCheckIcon: () => new vscode.ThemeIcon('check'),
+          createBlankIcon: () => new vscode.ThemeIcon('blank'),
           selectManually: (repoRoot) => coordinator.selectManually(repoRoot),
         });
       } catch (error) {
