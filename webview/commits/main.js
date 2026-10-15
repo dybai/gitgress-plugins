@@ -5,10 +5,11 @@ import {
 } from '../../src/views/commits/commitKeyboardNav.ts';
 import {
   foldRemoteLabel,
+  orderedSecondaryRefs,
   primaryRef,
-  secondaryRefs,
 } from '../../src/views/commits/attachCommitRefs.ts';
 import { formatCompactRelativeTime } from '../../src/views/commits/formatCompactRelativeTime.ts';
+import { packRefPills } from '../../src/views/commits/packRefPills.ts';
 import { repoShortName } from '../../src/views/commits/repoShortName.ts';
 import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
 import {
@@ -36,6 +37,12 @@ import {
   let loadMoreSent = false;
   let loadNewerSent = false;
   let suppressEdgeRequestsUntilUserScroll = false;
+  const refPillNodes = new WeakMap();
+  const refPillsResizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      packPillRow(entry.target);
+    }
+  });
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const MAX_LANES = 10;
@@ -150,7 +157,64 @@ import {
     hoverCard.classList.toggle('caret-bottom', !fitsBelow);
   };
 
-  const showHover = (button, commit, branch) => {
+  const pillClass = (kind) => {
+    if (kind === 'tag') return 'ref-pill ref-pill-tag';
+    if (kind === 'remote') return 'ref-pill ref-pill-remote';
+    return 'ref-pill';
+  };
+
+  const appendOrderedPills = (parent, commit, message, includeJumpControls) => {
+    const refs = Array.isArray(commit.refs) ? commit.refs : [];
+    const isHead =
+      typeof message.headCommitId === 'string' &&
+      message.headCommitId.length > 0 &&
+      commit.id === message.headCommitId;
+    const isTip =
+      Array.isArray(message.tipCommitIds) && message.tipCommitIds.includes(commit.id);
+    const nodes = [];
+
+    if (isHead) {
+      nodes.push(appendTextElement(parent, 'span', 'ref-pill', 'HEAD'));
+    }
+
+    const primary = primaryRef(refs, message.branch);
+    if (primary) {
+      const folded = foldRemoteLabel(primary, refs);
+      const compound = document.createElement('span');
+      compound.className = `${pillClass(primary.kind)} tip-compound`;
+
+      const names = document.createElement('span');
+      names.className = 'tip-names';
+      appendTextElement(names, 'span', 'tip-name', primary.name);
+      if (folded) {
+        appendTextElement(names, 'span', 'tip-remote', folded);
+      }
+      compound.append(names);
+
+      if (includeJumpControls && isTip) {
+        appendJumpControls(compound, commit.id, message);
+      }
+
+      parent.append(compound);
+      nodes.push(compound);
+
+      for (const ref of orderedSecondaryRefs(refs, primary, folded)) {
+        nodes.push(
+          appendTextElement(parent, 'span', pillClass(ref.kind), ref.name),
+        );
+      }
+    } else if (includeJumpControls && isTip) {
+      const compound = document.createElement('span');
+      compound.className = 'ref-pill tip-compound';
+      appendJumpControls(compound, commit.id, message);
+      parent.append(compound);
+      nodes.push(compound);
+    }
+
+    return nodes;
+  };
+
+  const showHover = (button, commit, hostMessage) => {
     cancelHideHover();
     if (hoveredButton !== button) {
       hoveredButton?.removeAttribute('aria-describedby');
@@ -178,18 +242,23 @@ import {
     message.textContent = commit.fullMessage;
 
     const children = [primary, details, message];
-    if (branch) {
-      const branchLine = document.createElement('p');
-      branchLine.className = 'card-branch';
-      branchLine.textContent = branch;
-      children.push(branchLine);
+    const refs = Array.isArray(commit.refs) ? commit.refs : [];
+    const isHead =
+      typeof hostMessage.headCommitId === 'string' &&
+      hostMessage.headCommitId.length > 0 &&
+      commit.id === hostMessage.headCommitId;
+    if (isHead || refs.length > 0) {
+      const cardRefs = document.createElement('div');
+      cardRefs.className = 'card-refs';
+      appendOrderedPills(cardRefs, commit, hostMessage, false);
+      children.push(cardRefs);
     }
     hoverCard.replaceChildren(...children);
     hoverCard.classList.remove('hidden');
     positionHover();
   };
 
-  const scheduleShowHover = (button, commit, branch) => {
+  const scheduleShowHover = (button, commit, message) => {
     cancelShowHover();
     cancelHideHover();
     const delay = hoverCard.classList.contains('hidden')
@@ -197,7 +266,7 @@ import {
       : HOVER_SWITCH_DELAY_MS;
     showHoverTimer = setTimeout(() => {
       showHoverTimer = undefined;
-      showHover(button, commit, branch);
+      showHover(button, commit, message);
     }, delay);
   };
 
@@ -279,14 +348,53 @@ import {
     parent.append(jump);
   };
 
+  function packPillRow(pills) {
+    const nodes = refPillNodes.get(pills);
+    if (!nodes) return;
+
+    pills.querySelector('.ref-pill-more')?.remove();
+    for (const node of nodes) {
+      node.hidden = false;
+    }
+
+    const gap = Number.parseFloat(getComputedStyle(pills).columnGap) || 0;
+    const widths = nodes.map((node, index) => {
+      const previousFlex = node.style.flex;
+      const previousMaxWidth = node.style.maxWidth;
+      node.style.flex = '0 0 auto';
+      node.style.maxWidth = 'none';
+      const width = node.getBoundingClientRect().width;
+      node.style.flex = previousFlex;
+      node.style.maxWidth = previousMaxWidth;
+      return width + (index > 0 ? gap : 0);
+    });
+    const more = document.createElement('span');
+    more.className = 'ref-pill ref-pill-more';
+    more.style.visibility = 'hidden';
+    pills.append(more);
+    const moreWidthFor = (hiddenCount) => {
+      more.textContent = `+${hiddenCount}`;
+      return more.getBoundingClientRect().width + gap;
+    };
+    const packed = packRefPills(widths, pills.clientWidth, moreWidthFor);
+    more.remove();
+
+    nodes.forEach((node, index) => {
+      node.hidden = index >= packed.visibleCount;
+    });
+    if (packed.hiddenCount > 0) {
+      more.style.removeProperty('visibility');
+      more.textContent = `+${packed.hiddenCount}`;
+      pills.append(more);
+    }
+  }
+
   const appendRefPills = (subjectRow, commit, message) => {
     const refs = Array.isArray(commit.refs) ? commit.refs : [];
     const isHead =
       typeof message.headCommitId === 'string' &&
       message.headCommitId.length > 0 &&
       commit.id === message.headCommitId;
-    const isTip =
-      Array.isArray(message.tipCommitIds) && message.tipCommitIds.includes(commit.id);
 
     if (!isHead && refs.length === 0) {
       return [];
@@ -294,51 +402,11 @@ import {
 
     const pills = document.createElement('span');
     pills.className = 'ref-pills';
-
-    if (isHead) {
-      appendTextElement(pills, 'span', 'ref-pill', 'HEAD');
-    }
-
-    const primary = primaryRef(refs, message.branch);
-    if (primary) {
-      const folded = foldRemoteLabel(primary, refs);
-      const compound = document.createElement('span');
-      compound.className = 'ref-pill tip-compound';
-      if (primary.kind === 'remote') {
-        compound.classList.add('ref-pill-remote');
-      }
-
-      const names = document.createElement('span');
-      names.className = 'tip-names';
-      appendTextElement(names, 'span', 'tip-name', primary.name);
-      if (folded) {
-        appendTextElement(names, 'span', 'tip-remote', folded);
-      }
-      compound.append(names);
-
-      if (isTip) {
-        appendJumpControls(compound, commit.id, message);
-      }
-
-      pills.append(compound);
-
-      for (const ref of secondaryRefs(refs, primary, folded)) {
-        const pill = appendTextElement(
-          pills,
-          'span',
-          ref.kind === 'remote' ? 'ref-pill ref-pill-remote' : 'ref-pill',
-          ref.name,
-        );
-        void pill;
-      }
-    } else if (isTip) {
-      const compound = document.createElement('span');
-      compound.className = 'ref-pill tip-compound';
-      appendJumpControls(compound, commit.id, message);
-      pills.append(compound);
-    }
+    const nodes = appendOrderedPills(pills, commit, message, true);
 
     subjectRow.append(pills);
+    refPillNodes.set(pills, nodes);
+    refPillsResizeObserver.observe(pills);
     const aria = [];
     if (isHead) {
       aria.push('HEAD');
@@ -398,10 +466,10 @@ import {
     button.addEventListener('click', () => selectCommitButton(button));
 
     item.addEventListener('mouseenter', () =>
-      scheduleShowHover(button, commit, message.branch),
+      scheduleShowHover(button, commit, message),
     );
     item.addEventListener('mouseleave', scheduleHideHover);
-    button.addEventListener('focus', () => showHover(button, commit, message.branch));
+    button.addEventListener('focus', () => showHover(button, commit, message));
     button.addEventListener('blur', scheduleHideHover);
 
     item.append(button);
@@ -562,6 +630,7 @@ import {
   const renderCommits = (message) => {
     hideHover();
     const scrollAnchor = captureScrollAnchor(message);
+    refPillsResizeObserver.disconnect();
     selectedButton = undefined;
     const root =
       typeof message.repoRoot === 'string' && message.repoRoot.length > 0

@@ -47,6 +47,23 @@ describe('commits hover overlay assets', () => {
   });
 });
 
+describe('commits ref pills tags and overflow', () => {
+  it('uses nowrap ref-pills and tag/more styles', () => {
+    expect(css).toMatch(/\.ref-pills\s*\{[\s\S]*flex-wrap:\s*nowrap/);
+    expect(css).toMatch(/\.ref-pill-tag\s*\{/);
+    expect(css).toMatch(/\.ref-pill-more\s*\{/);
+  });
+
+  it('packs pills and renders hover card ref pills', () => {
+    expect(source).toMatch(/packRefPills/);
+    expect(source).toMatch(/orderedSecondaryRefs/);
+    expect(source).toMatch(/ref-pill-tag/);
+    expect(source).toMatch(/ref-pill-more/);
+    expect(source).toMatch(/card-refs|hover.*ref-pill/);
+    expect(source).not.toMatch(/branchLine\.textContent\s*=\s*branch/);
+  });
+});
+
 describe('commits sticky chrome', () => {
   it('keeps scan progress and branch header outside a dedicated list scroller', () => {
     expect(html).toMatch(

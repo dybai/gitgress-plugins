@@ -228,10 +228,11 @@ button {
 .ref-pills {
   display: flex;
   flex: 1 1 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
   align-items: center;
   min-width: 0;
+  overflow: hidden;
 }
 
 .ref-pill {
@@ -254,6 +255,24 @@ button {
    label inside a compound tip is muted via .tip-remote. */
 .ref-pill-remote {
   font-weight: 500;
+}
+
+.ref-pill-tag {
+  border-color: var(
+    --vscode-charts-orange,
+    var(--vscode-editorWarning-foreground)
+  );
+  color: var(--vscode-charts-orange, var(--vscode-editorWarning-foreground));
+  background: transparent;
+  font-weight: 600;
+}
+
+.ref-pill-more {
+  flex-shrink: 0;
+  border: 1px dashed var(--vscode-descriptionForeground);
+  color: var(--vscode-descriptionForeground);
+  background: transparent;
+  font-weight: 600;
 }
 
 .tip-compound {
@@ -397,8 +416,7 @@ button {
 
 .card-primary,
 .card-details,
-.card-message,
-.card-branch {
+.card-message {
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -407,8 +425,7 @@ button {
   font-weight: 600;
 }
 
-.card-details,
-.card-branch {
+.card-details {
   margin-top: 3px;
   color: var(--vscode-descriptionForeground);
   font-size: 11px;
@@ -417,6 +434,16 @@ button {
 .card-message {
   margin-top: 8px;
   white-space: pre-wrap;
+}
+
+.card-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--vscode-widget-border);
 }
 
 .additions {
