@@ -2,6 +2,24 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.15
+
+- Commits keeps scan progress and the branch header fixed; only the commit
+  list scrolls. Files keeps the toolbar fixed; only the file list scrolls.
+- Commits shows git tag pills on the tagged commits, visually distinct from
+  branch tips (outline tags / filled branches). Refs pack into one row by
+  priority (`HEAD` → current branch → tags → other branches); overflow folds
+  into `+N`, with the full pill list on the commit hover card. Tip ↑/↓ jump
+  stays branch-tips only. Tag tip changes refresh history via `refs/tags`
+  watches; tag names display without a `refs/tags/` prefix.
+- Commit graph elbows use rounded corners, and each row’s graph gutter shrinks
+  to the lanes that row actually uses so sparse history wastes less horizontal
+  space.
+- Commits title bar no longer shows Select Repository / Switch Branch beside
+  Refresh (commands remain in the Command Palette). The header repo and branch
+  controls use Codicon `repo` / `git-branch` icons; clicking the branch control
+  switches branches. Header left padding aligns with the commit-list / graph.
+
 ## 1.0.11
 
 - Select Repository Quick Pick shows the workspace folder short name for the
