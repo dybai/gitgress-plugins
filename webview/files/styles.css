@@ -1,7 +1,16 @@
+html,
 body {
+  height: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
   margin: 0;
   padding: 0;
+  overflow: hidden;
   color: var(--vscode-foreground);
+  background: var(--vscode-sideBar-background);
   font-family: var(--vscode-font-family);
   font-size: var(--vscode-font-size);
   user-select: none;
@@ -14,9 +23,17 @@ body {
 
 .toolbar {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
+  background: var(--vscode-sideBar-background);
+}
+
+#content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .toolbar .title {
