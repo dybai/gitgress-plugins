@@ -84,7 +84,7 @@ export class GitService {
   ): Promise<Array<{ name: string; kind: 'local' | 'remote' | 'tag'; commitId: string }>> {
     const { stdout } = await this.runGit(repoRoot, [
       'for-each-ref',
-      '--format=%(objectname) %(*objectname) %(refname) %(refname:short)',
+      '--format=%(objectname) %(*objectname) %(refname) %(refname:strip=2)',
       'refs/heads',
       'refs/remotes',
       'refs/tags',

@@ -69,7 +69,7 @@ describe('GitService', () => {
   it('lists local, remote, and peeled tag tips', async () => {
     const runGit = vi.fn<RunGit>(async () => ({
       stdout: [
-        // objectname *objectname refname short
+        // objectname *objectname refname strip=2 name (no tags/ prefix when branch+tag collide)
         'aaa  refs/heads/main main',
         'bbb  refs/heads/feature/x feature/x',
         'ccc  refs/remotes/origin/main origin/main',
@@ -90,7 +90,7 @@ describe('GitService', () => {
     ]);
     expect(runGit).toHaveBeenCalledWith('/repo', [
       'for-each-ref',
-      '--format=%(objectname) %(*objectname) %(refname) %(refname:short)',
+      '--format=%(objectname) %(*objectname) %(refname) %(refname:strip=2)',
       'refs/heads',
       'refs/remotes',
       'refs/tags',
