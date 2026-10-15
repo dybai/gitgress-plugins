@@ -274,7 +274,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           roots: index.getRepos(),
           currentRepoRoot: selection.getSnapshot().repoRoot,
           workspaceFolderPaths: workspaceRoots(),
-          showQuickPick: vscode.window.showQuickPick,
+          createQuickPick: vscode.window.createQuickPick,
+          createCheckIcon: () => new vscode.ThemeIcon('check'),
           selectManually: (repoRoot) => coordinator.selectManually(repoRoot),
         });
       } catch (error) {

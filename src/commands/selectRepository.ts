@@ -1,6 +1,7 @@
 import path from 'node:path';
 import type * as vscode from 'vscode';
 import { findOwningRepoRoot, normalizeRepoPath } from '../repoIndex/pathNormalize.js';
+import { showQuickPickActive } from '../ui/showQuickPickActive.js';
 import { repoShortName } from '../views/commits/repoShortName.js';
 
 type RepoQuickPickItem = vscode.QuickPickItem & { repoRoot: string };
@@ -23,14 +24,16 @@ export async function selectRepository(options: {
   roots: readonly string[];
   currentRepoRoot: string | null;
   workspaceFolderPaths: readonly string[];
-  showQuickPick: typeof vscode.window.showQuickPick;
+  createQuickPick: typeof vscode.window.createQuickPick;
+  createCheckIcon: () => vscode.ThemeIcon;
   selectManually: (repoRoot: string) => void;
 }): Promise<void> {
   const {
     roots,
     currentRepoRoot,
     workspaceFolderPaths,
-    showQuickPick,
+    createQuickPick,
+    createCheckIcon,
     selectManually,
   } = options;
 
@@ -43,19 +46,25 @@ export async function selectRepository(options: {
 
   const items: RepoQuickPickItem[] = roots.map((root) => {
     const normalized = normalizeRepoPath(root);
+    const isCurrent = normalizedCurrent !== null && normalized === normalizedCurrent;
     return {
       label: repoPickLabel(root, workspaceFolderPaths, roots),
-      description:
-        normalizedCurrent !== null && normalized === normalizedCurrent
-          ? 'Current repository'
-          : undefined,
+      description: isCurrent ? 'Current repository' : undefined,
+      iconPath: isCurrent ? createCheckIcon() : undefined,
       repoRoot: root,
     };
   });
 
-  const selected = (await showQuickPick(items, {
+  const activeItem =
+    normalizedCurrent === null
+      ? undefined
+      : items.find((item) => normalizeRepoPath(item.repoRoot) === normalizedCurrent);
+  const selected = await showQuickPickActive({
+    createQuickPick,
+    items,
     placeHolder: 'Select a repository',
-  })) as RepoQuickPickItem | undefined;
+    activeItem,
+  });
 
   if (selected !== undefined) {
     selectManually(selected.repoRoot);

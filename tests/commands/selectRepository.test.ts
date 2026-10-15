@@ -1,153 +1,175 @@
 import { describe, expect, it, vi } from 'vitest';
 import type * as vscode from 'vscode';
 import { selectRepository } from '../../src/commands/selectRepository';
+import { createFakeCreateQuickPick } from '../helpers/fakeCreateQuickPick';
+
+const checkIcon = { id: 'check' } as vscode.ThemeIcon;
 
 describe('selectRepository', () => {
   it('does nothing when there are no indexed roots', async () => {
-    const showQuickPick = vi.fn() as unknown as typeof vscode.window.showQuickPick;
+    const { createQuickPick } = createFakeCreateQuickPick();
     const selectManually = vi.fn();
 
     await selectRepository({
       roots: [],
       currentRepoRoot: null,
       workspaceFolderPaths: ['/ws'],
-      showQuickPick,
+      createQuickPick,
+      createCheckIcon: () => checkIcon,
       selectManually,
     });
 
-    expect(showQuickPick).not.toHaveBeenCalled();
+    expect(createQuickPick).not.toHaveBeenCalled();
     expect(selectManually).not.toHaveBeenCalled();
   });
 
-  it('lists workspace-relative labels, marks the current repo, and selects manually', async () => {
-    const showQuickPick = vi.fn(async () => ({
-      label: 'api',
-      description: undefined,
-      repoRoot: '/ws/apps/api',
-    })) as unknown as typeof vscode.window.showQuickPick;
+  it('marks current with check icon, pre-focuses it, and selects manually', async () => {
+    const { createQuickPick, quickPick, triggerAccept } = createFakeCreateQuickPick<{
+      label: string;
+      description?: string;
+      iconPath?: vscode.ThemeIcon;
+      repoRoot: string;
+    }>();
     const selectManually = vi.fn();
 
-    await selectRepository({
+    const pending = selectRepository({
       roots: ['/ws/apps/api', '/ws/other'],
       currentRepoRoot: '/ws/apps/api',
       workspaceFolderPaths: ['/ws', '/ws/apps'],
-      showQuickPick,
+      createQuickPick,
+      createCheckIcon: () => checkIcon,
       selectManually,
     });
 
-    expect(showQuickPick).toHaveBeenCalledWith(
-      [
-        {
-          label: 'api',
-          description: 'Current repository',
-          repoRoot: '/ws/apps/api',
-        },
-        {
-          label: 'other',
-          description: undefined,
-          repoRoot: '/ws/other',
-        },
-      ],
-      { placeHolder: 'Select a repository' },
-    );
+    expect(quickPick.placeholder).toBe('Select a repository');
+    expect(quickPick.items).toEqual([
+      {
+        label: 'api',
+        description: 'Current repository',
+        iconPath: checkIcon,
+        repoRoot: '/ws/apps/api',
+      },
+      {
+        label: 'other',
+        description: undefined,
+        iconPath: undefined,
+        repoRoot: '/ws/other',
+      },
+    ]);
+    expect(quickPick.activeItems).toEqual([quickPick.items[0]]);
+
+    quickPick.selectedItems = [quickPick.items[0]];
+    triggerAccept();
+    await pending;
+
     expect(selectManually).toHaveBeenCalledWith('/ws/apps/api');
   });
 
   it('uses absolute paths when a repo is outside workspace folders', async () => {
-    const showQuickPick = vi.fn(async () => undefined) as unknown as
-      typeof vscode.window.showQuickPick;
+    const { createQuickPick, quickPick, triggerHide } = createFakeCreateQuickPick();
     const selectManually = vi.fn();
 
-    await selectRepository({
+    const pending = selectRepository({
       roots: ['/standalone/repo'],
       currentRepoRoot: null,
       workspaceFolderPaths: ['/ws'],
-      showQuickPick,
+      createQuickPick,
+      createCheckIcon: () => checkIcon,
       selectManually,
     });
 
-    expect(showQuickPick).toHaveBeenCalledWith(
-      [
-        {
-          label: '/standalone/repo',
-          description: undefined,
-          repoRoot: '/standalone/repo',
-        },
-      ],
-      { placeHolder: 'Select a repository' },
-    );
+    expect(quickPick.items).toEqual([
+      {
+        label: '/standalone/repo',
+        description: undefined,
+        iconPath: undefined,
+        repoRoot: '/standalone/repo',
+      },
+    ]);
+    expect(quickPick.activeItems).toEqual([]);
+
+    triggerHide();
+    await pending;
+
     expect(selectManually).not.toHaveBeenCalled();
   });
 
   it('does not select manually when the picker is cancelled', async () => {
-    const showQuickPick = vi.fn(async () => undefined) as unknown as
-      typeof vscode.window.showQuickPick;
+    const { createQuickPick, triggerHide } = createFakeCreateQuickPick();
     const selectManually = vi.fn();
 
-    await selectRepository({
+    const pending = selectRepository({
       roots: ['/ws/repo'],
       currentRepoRoot: '/ws/repo',
       workspaceFolderPaths: ['/ws'],
-      showQuickPick,
+      createQuickPick,
+      createCheckIcon: () => checkIcon,
       selectManually,
     });
+
+    triggerHide();
+    await pending;
 
     expect(selectManually).not.toHaveBeenCalled();
   });
 
   it('shows workspace-folder basename instead of "." for the current root repo', async () => {
-    const showQuickPick = vi.fn(async () => undefined) as unknown as
-      typeof vscode.window.showQuickPick;
+    const { createQuickPick, quickPick, triggerHide } = createFakeCreateQuickPick();
     const selectManually = vi.fn();
 
-    await selectRepository({
+    const pending = selectRepository({
       roots: ['/ws/gitgress-plugins'],
       currentRepoRoot: '/ws/gitgress-plugins',
       workspaceFolderPaths: ['/ws/gitgress-plugins'],
-      showQuickPick,
+      createQuickPick,
+      createCheckIcon: () => checkIcon,
       selectManually,
     });
 
-    expect(showQuickPick).toHaveBeenCalledWith(
-      [
-        {
-          label: 'gitgress-plugins',
-          description: 'Current repository',
-          repoRoot: '/ws/gitgress-plugins',
-        },
-      ],
-      { placeHolder: 'Select a repository' },
-    );
+    expect(quickPick.items).toEqual([
+      {
+        label: 'gitgress-plugins',
+        description: 'Current repository',
+        iconPath: checkIcon,
+        repoRoot: '/ws/gitgress-plugins',
+      },
+    ]);
+
+    triggerHide();
+    await pending;
+
     expect(selectManually).not.toHaveBeenCalled();
   });
 
   it('disambiguates colliding workspace-root basenames with parent/name', async () => {
-    const showQuickPick = vi.fn(async () => undefined) as unknown as
-      typeof vscode.window.showQuickPick;
+    const { createQuickPick, quickPick, triggerHide } = createFakeCreateQuickPick();
     const selectManually = vi.fn();
 
-    await selectRepository({
+    const pending = selectRepository({
       roots: ['/work/a/app', '/work/b/app'],
       currentRepoRoot: '/work/a/app',
       workspaceFolderPaths: ['/work/a/app', '/work/b/app'],
-      showQuickPick,
+      createQuickPick,
+      createCheckIcon: () => checkIcon,
       selectManually,
     });
 
-    expect(showQuickPick).toHaveBeenCalledWith(
-      [
-        {
-          label: 'a/app',
-          description: 'Current repository',
-          repoRoot: '/work/a/app',
-        },
-        {
-          label: 'b/app',
-          description: undefined,
-          repoRoot: '/work/b/app',
-        },
-      ],
-      { placeHolder: 'Select a repository' },
-    );
+    expect(quickPick.items).toEqual([
+      {
+        label: 'a/app',
+        description: 'Current repository',
+        iconPath: checkIcon,
+        repoRoot: '/work/a/app',
+      },
+      {
+        label: 'b/app',
+        description: undefined,
+        iconPath: undefined,
+        repoRoot: '/work/b/app',
+      },
+    ]);
+
+    triggerHide();
+    await pending;
   });
 });
