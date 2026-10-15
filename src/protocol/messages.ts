@@ -10,7 +10,7 @@ export type GraphEdgeDto = {
 
 export type CommitRefDto = {
   name: string;
-  kind: 'local' | 'remote';
+  kind: 'local' | 'remote' | 'tag';
 };
 
 export type CommitDto = {
@@ -82,7 +82,10 @@ function isCommitRefDto(value: unknown): value is CommitRefDto {
   if (!isRecord(value)) {
     return false;
   }
-  return isNonEmptyString(value.name) && (value.kind === 'local' || value.kind === 'remote');
+  return (
+    isNonEmptyString(value.name) &&
+    (value.kind === 'local' || value.kind === 'remote' || value.kind === 'tag')
+  );
 }
 
 function isCommitDto(value: unknown): value is CommitDto {

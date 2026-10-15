@@ -13,7 +13,7 @@ const validCommit = {
   parentIds: ['def'],
   lane: 0,
   colorIndex: 1,
-  refs: [] as { name: string; kind: 'local' | 'remote' }[],
+  refs: [] as { name: string; kind: 'local' | 'remote' | 'tag' }[],
 };
 
 const validEdge = {
@@ -130,6 +130,39 @@ describe('isHostMessage', () => {
         }),
       ),
     ).toBe(true);
+  });
+
+  it('accepts commits with tag refs', () => {
+    expect(
+      isHostMessage(
+        validCommitsLoaded({
+          commits: [
+            {
+              ...validCommit,
+              refs: [
+                { name: 'main', kind: 'local' },
+                { name: 'v1.2.0', kind: 'tag' },
+              ],
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects commits with unknown ref kinds', () => {
+    expect(
+      isHostMessage(
+        validCommitsLoaded({
+          commits: [
+            {
+              ...validCommit,
+              refs: [{ name: 'x', kind: 'stash' }],
+            },
+          ],
+        }),
+      ),
+    ).toBe(false);
   });
 
   it('accepts scanStatus idle', () => {
