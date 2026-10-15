@@ -2,7 +2,12 @@ import type { GitDirectoryLayout } from './resolveGitDir.js';
 
 export type GitHistoryWatchPath = {
   base: string;
-  pattern: 'HEAD' | 'packed-refs' | 'refs/heads/**' | 'refs/remotes/**';
+  pattern:
+    | 'HEAD'
+    | 'packed-refs'
+    | 'refs/heads/**'
+    | 'refs/remotes/**'
+    | 'refs/tags/**';
 };
 
 export function gitHistoryWatchPaths(
@@ -13,5 +18,6 @@ export function gitHistoryWatchPaths(
     { base: layout.commonDir, pattern: 'packed-refs' },
     { base: layout.commonDir, pattern: 'refs/heads/**' },
     { base: layout.commonDir, pattern: 'refs/remotes/**' },
+    { base: layout.commonDir, pattern: 'refs/tags/**' },
   ];
 }
