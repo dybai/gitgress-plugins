@@ -251,6 +251,10 @@ button {
   white-space: nowrap;
 }
 
+.ref-pill[hidden] {
+  display: none;
+}
+
 /* Secondary remote pills stay filled (readable); only the folded remote
    label inside a compound tip is muted via .tip-remote. */
 .ref-pill-remote {

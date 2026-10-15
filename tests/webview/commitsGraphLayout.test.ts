@@ -52,6 +52,7 @@ describe('commits ref pills tags and overflow', () => {
     expect(css).toMatch(/\.ref-pills\s*\{[\s\S]*flex-wrap:\s*nowrap/);
     expect(css).toMatch(/\.ref-pill-tag\s*\{/);
     expect(css).toMatch(/\.ref-pill-more\s*\{/);
+    expect(css).toMatch(/\.ref-pill\[hidden\]\s*\{[^}]*display:\s*none/);
   });
 
   it('packs pills and renders hover card ref pills', () => {

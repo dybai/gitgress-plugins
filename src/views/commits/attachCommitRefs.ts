@@ -38,7 +38,9 @@ export function primaryRef(
   if (refs.length === 0) {
     return null;
   }
-  const matchingDisplay = refs.find((ref) => ref.name === displayBranch);
+  const matchingDisplay = refs.find(
+    (ref) => ref.name === displayBranch && ref.kind !== 'tag',
+  );
   if (matchingDisplay) {
     return matchingDisplay;
   }

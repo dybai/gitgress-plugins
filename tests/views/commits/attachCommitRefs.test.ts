@@ -54,6 +54,17 @@ describe('primaryRef / foldRemoteLabel / secondaryRefs', () => {
     expect(primaryRef(refs, 'main')).toEqual({ name: 'main', kind: 'local' });
   });
 
+  it('ignores a tag that shares the display branch name', () => {
+    const refsWithBranchTag = [
+      { name: 'main', kind: 'tag' as const },
+      { name: 'feature', kind: 'local' as const },
+    ];
+    expect(primaryRef(refsWithBranchTag, 'main')).toEqual({
+      name: 'feature',
+      kind: 'local',
+    });
+  });
+
   it('folds matching remote short label', () => {
     expect(foldRemoteLabel({ name: 'main', kind: 'local' }, refs)).toBe('origin');
   });
