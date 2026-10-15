@@ -22,6 +22,7 @@ describe('showQuickPickActive', () => {
 
     triggerHide();
     await expect(pending).resolves.toBeUndefined();
+    expect(quickPick.dispose).toHaveBeenCalledOnce();
   });
 
   it('omits activeItems override when activeItem is not provided', async () => {
@@ -73,7 +74,7 @@ describe('showQuickPickActive', () => {
     await expect(pending).resolves.toBe(items[1]);
   });
 
-  it('resolves undefined on hide and disposes once even if hide follows accept', async () => {
+  it('keeps accepted item and disposes once when hide follows accept', async () => {
     const { createQuickPick, quickPick, triggerAccept, triggerHide } =
       createFakeCreateQuickPick();
     const items = [{ label: 'a' }];
