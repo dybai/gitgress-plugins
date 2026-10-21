@@ -4,8 +4,8 @@ All notable changes to GitGress are documented in this file.
 
 ## 1.0.18
 
-- Commits keeps a way to pick a repository and branch when the commit list is
-  empty: with repositories indexed but none selected the header shows
+- When repositories are indexed, Commits keeps a way to pick a repository and
+  branch even if the commit list is empty: with none selected the header shows
   `Select repository`, load errors keep both controls, and Select Repository /
   Switch Branch return to the Commits title bar.
 - The last effective repository is remembered and restored when a workspace is

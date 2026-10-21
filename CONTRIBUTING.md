@@ -129,11 +129,12 @@ history such as `fintech-service`):
       view commits."
 - [ ] Commits empty states keep an entry point whenever the index has at least
       one repository: the header shows `Select repository` when nothing is
-      selected, and Select Repository stays in the title bar. With zero indexed
-      repos the header is intentionally hidden and only the "Open a folder
-      containing a Git repository." copy is shown.
-- [ ] Commits title bar offers Select Repository (when the index has repos) and
-      Switch Branch (when a repo is selected) alongside Refresh.
+      selected. With zero indexed repos the header is intentionally hidden and
+      Commits shows the "Open a folder containing a Git repository." copy
+      instead.
+- [ ] Commits title bar offers Select Repository (gated by
+      `gitgress.hasRepositories`) and Switch Branch (gated by
+      `gitgress.hasRepository`) alongside Refresh.
 - [ ] **Refresh** reloads history for the current repo but does not auto-switch
       to another indexed repository.
 
