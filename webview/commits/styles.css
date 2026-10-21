@@ -49,6 +49,14 @@ button {
   display: none;
 }
 
+[hidden] {
+  display: none !important;
+}
+
+.branch-header.hidden {
+  display: none;
+}
+
 .status {
   padding: 16px 12px;
   color: var(--vscode-descriptionForeground);

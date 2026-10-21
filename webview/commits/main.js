@@ -11,6 +11,7 @@ import {
 import { formatCompactRelativeTime } from '../../src/views/commits/formatCompactRelativeTime.ts';
 import { packRefPills } from '../../src/views/commits/packRefPills.ts';
 import { repoShortName } from '../../src/views/commits/repoShortName.ts';
+import { resolveCommitsHeader } from '../../src/views/commits/commitsHeaderState.ts';
 import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
 import {
   anchoredScrollTop,
@@ -34,6 +35,23 @@ import {
   const branchSwitch = document.querySelector('#branch-switch');
   const commitList = document.querySelector('#commit-list');
   const hoverCard = document.querySelector('#hover-card');
+  const header = document.querySelector('.branch-header');
+
+  const applyHeader = (state) => {
+    if (header) {
+      header.classList.toggle('hidden', !state.showRepo && !state.showBranch);
+    }
+    if (repoName instanceof HTMLButtonElement) {
+      repoName.hidden = !state.showRepo;
+      repoName.title = state.repoTitle;
+    }
+    if (repoLabel) repoLabel.textContent = state.repoLabel;
+    if (branchSwitch instanceof HTMLButtonElement) {
+      branchSwitch.hidden = !state.showBranch;
+    }
+    branchName.textContent = state.branchLabel;
+  };
+
   let selectedButton;
   let hoveredButton;
   let hideHoverTimer;
@@ -634,22 +652,13 @@ import {
     const scrollAnchor = captureScrollAnchor(message);
     refPillsResizeObserver.disconnect();
     selectedButton = undefined;
-    const root =
-      typeof message.repoRoot === 'string' && message.repoRoot.length > 0
-        ? message.repoRoot
-        : '';
-    if (repoName instanceof HTMLButtonElement) {
-      if (root) {
-        repoName.hidden = false;
-        if (repoLabel) repoLabel.textContent = repoShortName(root, []);
-        repoName.title = root;
-      } else {
-        repoName.hidden = true;
-        if (repoLabel) repoLabel.textContent = '';
-        repoName.title = '';
-      }
-    }
-    branchName.textContent = message.branch;
+    applyHeader(
+      resolveCommitsHeader({
+        reason: 'commitsLoaded',
+        repoRoot: message.repoRoot,
+        branch: message.branch,
+      }),
+    );
     const svg = svgElement('svg', {
       class: 'commit-graph',
       'aria-hidden': 'true',
@@ -757,6 +766,13 @@ import {
       lastHasNewer = false;
       loadMoreSent = false;
       loadNewerSent = false;
+      applyHeader(
+        resolveCommitsHeader({
+          reason: data.reason,
+          repoRoot: data.repoRoot,
+          branch: data.branch,
+        }),
+      );
       const messages = {
         noRepo: 'Open a folder containing a Git repository.',
         noSelection: 'Select a repository to view commits.',
