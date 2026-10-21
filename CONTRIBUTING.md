@@ -116,14 +116,23 @@ history such as `fintech-service`):
 - [ ] Sticky selection: after a manual pick, switching editors does not change
       the active repo until you select again; without a manual pick, the active
       editor’s repo is preferred.
-- [ ] With **no** manual preference and **no** usable active file, after the
-      index scan is idle: if exactly one workspace folder path equals an
-      indexed root, that repo is selected; else if the index has exactly one
-      root, that repo is selected; otherwise Commits stays empty until
-      **Select Repository**.
+- [ ] Reopening a workspace with no manual pick restores the last effective
+      repository (`gitgress.lastRepoRoot` in workspace state) once it is in the
+      index; the active file’s repository still wins over it.
+- [ ] With **no** manual preference, **no** usable active file, and **no**
+      remembered repository, after the index scan is idle: if exactly one
+      workspace folder path equals an indexed root, that repo is selected; else
+      if the index has exactly one root, that repo is selected; otherwise
+      Commits stays empty until **Select Repository**.
 - [ ] Empty Commits copy: no indexed repos → "Open a folder containing a Git
       repository."; indexed repos but none selected → "Select a repository to
       view commits."
+- [ ] Empty Commits states keep an entry point: the header shows
+      `Select repository` when nothing is selected, and the title bar keeps
+      Select Repository / Switch Branch (gated by `gitgress.hasRepositories` /
+      `gitgress.hasRepository`).
+- [ ] Commits title bar offers Select Repository (when the index has repos) and
+      Switch Branch (when a repo is selected) alongside Refresh.
 - [ ] **Refresh** reloads history for the current repo but does not auto-switch
       to another indexed repository.
 

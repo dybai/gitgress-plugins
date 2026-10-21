@@ -2,6 +2,21 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.18
+
+- Commits empty states keep the header visible: with repositories indexed but
+  none selected the header shows `Select repository`, and no-branch / load-error
+  states keep the current repository and branch controls instead of hiding the
+  whole header.
+- Select Repository and Switch Branch return to the Commits title bar
+  (`gitgress.hasRepositories` / new `gitgress.hasRepository` context keys), so
+  an indexed repository or the selected branch stays reachable from the title
+  bar even when the commit list is empty.
+- The last effective repository is remembered in workspace state
+  (`gitgress.lastRepoRoot`) and restored on reopen: manual preference first,
+  then the active file’s repository, then the remembered repository, then the
+  authoritative-index fallback.
+
 ## 1.0.17
 
 - Select Repository and Switch Branch Quick Picks mark the current item with a
