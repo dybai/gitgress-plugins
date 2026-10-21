@@ -215,3 +215,34 @@ describe('isWebviewToHost', () => {
     expect(isWebviewToHost({ type: 'selectRepository' })).toBe(true);
   });
 });
+
+describe('empty message repo context', () => {
+  it('accepts an empty message that carries repoRoot and branch', () => {
+    expect(
+      isHostMessage({
+        type: 'empty',
+        reason: 'noCommits',
+        repoRoot: 'd:/ws/apps/api',
+        branch: 'main',
+      }),
+    ).toBe(true);
+  });
+
+  it('accepts an empty message that carries only repoRoot', () => {
+    expect(
+      isHostMessage({ type: 'empty', reason: 'noCommits', repoRoot: 'd:/ws/apps/api' }),
+    ).toBe(true);
+  });
+
+  it('rejects an empty repoRoot string', () => {
+    expect(
+      isHostMessage({ type: 'empty', reason: 'noSelection', repoRoot: '' }),
+    ).toBe(false);
+  });
+
+  it('rejects a non-string branch', () => {
+    expect(
+      isHostMessage({ type: 'empty', reason: 'noCommits', branch: 3 }),
+    ).toBe(false);
+  });
+});

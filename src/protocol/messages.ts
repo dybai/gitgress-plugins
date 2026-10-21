@@ -42,7 +42,15 @@ export type HostToWebview =
       tipCommitIds: string[];
       selectedCommitId?: string | null;
     }
-  | { type: 'empty'; reason: 'noRepo' | 'noCommits' | 'error' | 'noSelection'; message?: string }
+  | {
+      type: 'empty';
+      reason: 'noRepo' | 'noCommits' | 'error' | 'noSelection';
+      message?: string;
+      /** Known owning repository, so the header stays actionable in empty states. */
+      repoRoot?: string;
+      /** Known display branch, so the branch control stays actionable. */
+      branch?: string;
+    }
   | { type: 'selectionCleared' }
   | { type: 'scanStatus'; status: 'idle' | 'scanning' };
 
@@ -143,7 +151,11 @@ export function isHostMessage(value: unknown): value is HostToWebview {
       ) {
         return false;
       }
-      return value.message === undefined || typeof value.message === 'string';
+      return (
+        (value.message === undefined || typeof value.message === 'string') &&
+        (value.repoRoot === undefined || isNonEmptyString(value.repoRoot)) &&
+        (value.branch === undefined || typeof value.branch === 'string')
+      );
     }
     case 'selectionCleared':
       return true;
