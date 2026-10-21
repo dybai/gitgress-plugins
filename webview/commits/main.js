@@ -10,7 +10,6 @@ import {
 } from '../../src/views/commits/attachCommitRefs.ts';
 import { formatCompactRelativeTime } from '../../src/views/commits/formatCompactRelativeTime.ts';
 import { packRefPills } from '../../src/views/commits/packRefPills.ts';
-import { repoShortName } from '../../src/views/commits/repoShortName.ts';
 import { resolveCommitsHeader } from '../../src/views/commits/commitsHeaderState.ts';
 import { tipJumpTarget } from '../../src/views/commits/tipJump.ts';
 import {
@@ -49,7 +48,7 @@ import {
     if (branchSwitch instanceof HTMLButtonElement) {
       branchSwitch.hidden = !state.showBranch;
     }
-    branchName.textContent = state.branchLabel;
+    if (branchName) branchName.textContent = state.branchLabel;
   };
 
   let selectedButton;

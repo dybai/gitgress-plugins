@@ -21,7 +21,12 @@ describe('commits webview markup', () => {
   });
 
   it('lets attribute and class hiding win over the header/button display rules', () => {
-    expect(css).toMatch(/\[hidden\]\s*\{[^}]*display:\s*none/s);
+    // `!important` is load-bearing: `.branch-switch` / `.repo-name` set
+    // `display: inline-flex` with the same specificity (single class) and are
+    // defined later in styles.css, so without `!important` the hidden branch
+    // button would stay visible in the noSelection empty state while the
+    // suite remained green.
+    expect(css).toMatch(/\[hidden\]\s*\{[^}]*display:\s*none\s*!important/s);
     expect(css).toMatch(/\.branch-header\.hidden\s*\{[^}]*display:\s*none/s);
   });
 
@@ -29,5 +34,12 @@ describe('commits webview markup', () => {
     expect(js).toContain('resolveCommitsHeader');
     expect(js).toContain('applyHeader');
     expect(js).not.toContain('repoName.hidden = false');
+  });
+
+  it('wires the header into both the render and empty paths', () => {
+    // applyHeader( must be called exactly twice: renderCommits and the `empty`
+    // handler. The empty path is what keeps noSelection/noRepo headers correct.
+    expect(js.match(/applyHeader\(/g)).toHaveLength(2);
+    expect(js).toMatch(/data\.type === 'empty'[\s\S]*?applyHeader\(/);
   });
 });
