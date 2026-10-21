@@ -986,6 +986,40 @@ describe('SelectionCoordinator', () => {
       expect(memory.raw).toBe('/ws/apps/api');
     });
 
+    it('restores the remembered root when the index arrives after activation', () => {
+      const memory = makeMemory('/ws/apps/api');
+      const { coordinator, selection, rootsGetter } = makeCoordinator({
+        roots: [],
+        workspaceFolders: ['/ws'],
+        memory,
+      });
+
+      coordinator.resolveInitial();
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+
+      rootsGetter.mockReturnValue(['/ws/apps/api', '/ws/apps/web']);
+      coordinator.onIndexUpdated();
+
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
+      expect(memory.raw).toBe('/ws/apps/api');
+    });
+
+    it('prefers an indexed manual preference over a different remembered root', () => {
+      const preference = makePreference('/ws/apps/web');
+      const memory = makeMemory('/ws/apps/api');
+      const { coordinator, selection } = makeCoordinator({
+        roots: ['/ws/apps/api', '/ws/apps/web'],
+        workspaceFolders: ['/ws'],
+        preference,
+        memory,
+      });
+
+      coordinator.resolveInitial();
+
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/web');
+      expect(memory.raw).toBe('/ws/apps/web');
+    });
+
     it('drops a matching remembered root when the selected repository becomes invalid', () => {
       const memory = makeMemory('/ws/apps/api');
       const { coordinator, rootsGetter } = makeCoordinator({

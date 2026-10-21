@@ -326,7 +326,7 @@ export class SelectionCoordinator {
     return null;
   }
 
-  /** True when the remembered root points at `normalizedRoot`. */
+  /** Clear the remembered root when it points at `normalizedRoot`. */
   private forgetMemoryFor(normalizedRoot: string): void {
     const remembered = this.memory?.get() ?? null;
     if (remembered != null && normalizeRepoPath(remembered) === normalizedRoot) {
