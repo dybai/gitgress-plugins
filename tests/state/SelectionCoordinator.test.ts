@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { SelectionState } from '../../src/state/SelectionState.js';
 import { SelectionCoordinator } from '../../src/state/SelectionCoordinator.js';
-import type { ManualRepoPreference } from '../../src/state/SelectionCoordinator.js';
+import type { ManualRepoPreference, RepoMemory } from '../../src/state/SelectionCoordinator.js';
 
 function makePreference(initial: string | null = null): ManualRepoPreference & {
   raw: string | null;
@@ -18,10 +18,24 @@ function makePreference(initial: string | null = null): ManualRepoPreference & {
   return pref;
 }
 
+function makeMemory(initial: string | null = null): RepoMemory & { raw: string | null } {
+  const memory: RepoMemory & { raw: string | null } = {
+    raw: initial,
+    get() {
+      return memory.raw;
+    },
+    set(root: string | null) {
+      memory.raw = root;
+    },
+  };
+  return memory;
+}
+
 function makeCoordinator(opts: {
   selection?: SelectionState;
   roots?: readonly string[];
   preference?: ManualRepoPreference;
+  memory?: RepoMemory;
   activeFile?: string | null;
   workspaceFolders?: readonly string[];
   discoverGitRoot?: (filePath: string) => string | null;
@@ -38,6 +52,7 @@ function makeCoordinator(opts: {
     activeFileGetter,
     workspaceFoldersGetter,
     opts.discoverGitRoot,
+    opts.memory,
   );
   return {
     selection,
@@ -847,6 +862,143 @@ describe('SelectionCoordinator', () => {
       expect(selection.getSnapshot().repoRoot).toBeNull();
       coordinator.resolveInitial();
       expect(selection.getSnapshot().repoRoot).toBeNull();
+    });
+  });
+
+  describe('remembered repository', () => {
+    it('restores the remembered root when there is no preference and no active file', () => {
+      const memory = makeMemory('/ws/apps/api');
+      const { coordinator, selection } = makeCoordinator({
+        roots: ['/ws/apps/api', '/ws/apps/web'],
+        workspaceFolders: ['/ws'],
+        memory,
+      });
+
+      coordinator.resolveInitial();
+
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
+      expect(coordinator.isLocked()).toBe(true);
+      expect(memory.raw).toBe('/ws/apps/api');
+    });
+
+    it('prefers the editor owning repo over the remembered root and updates memory', () => {
+      const memory = makeMemory('/ws/apps/api');
+      const { coordinator, selection } = makeCoordinator({
+        roots: ['/ws/apps/api', '/ws/apps/web'],
+        workspaceFolders: ['/ws'],
+        activeFile: '/ws/apps/web/src/index.ts',
+        memory,
+      });
+
+      coordinator.resolveInitial();
+
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/web');
+      expect(memory.raw).toBe('/ws/apps/web');
+    });
+
+    it('skips a remembered root missing from a non-authoritative index without clearing it', () => {
+      const memory = makeMemory('/ws/apps/gone');
+      const { coordinator, selection } = makeCoordinator({
+        roots: ['/ws/apps/api'],
+        workspaceFolders: ['/ws'],
+        memory,
+      });
+
+      coordinator.resolveInitial();
+
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(memory.raw).toBe('/ws/apps/gone');
+    });
+
+    it('clears a stale remembered root once the index is authoritative', () => {
+      const memory = makeMemory('/ws/apps/gone');
+      const { coordinator, selection } = makeCoordinator({
+        roots: ['/ws/apps/api', '/ws/apps/web'],
+        workspaceFolders: ['/ws'],
+        memory,
+      });
+
+      coordinator.onScanIdle();
+
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(memory.raw).toBeNull();
+    });
+
+    it('records the authoritative fallback selection', () => {
+      const memory = makeMemory();
+      const { coordinator, selection } = makeCoordinator({
+        roots: ['/ws/apps/api'],
+        workspaceFolders: ['/ws'],
+        memory,
+      });
+
+      coordinator.onScanIdle();
+
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/api');
+      expect(memory.raw).toBe('/ws/apps/api');
+    });
+
+    it('records a manual selection while keeping the manual preference separate', () => {
+      const preference = makePreference();
+      const memory = makeMemory();
+      const { coordinator, selection } = makeCoordinator({
+        roots: ['/ws/apps/api', '/ws/apps/web'],
+        workspaceFolders: ['/ws'],
+        preference,
+        memory,
+      });
+
+      coordinator.selectManually('/ws/apps/web');
+
+      expect(selection.getSnapshot().repoRoot).toBe('/ws/apps/web');
+      expect(preference.raw).toBe('/ws/apps/web');
+      expect(memory.raw).toBe('/ws/apps/web');
+    });
+
+    it('drops a matching remembered root when the selection is cleared with forgetPreference', () => {
+      const preference = makePreference('/ws/apps/api');
+      const memory = makeMemory('/ws/apps/api');
+      const { coordinator, selection } = makeCoordinator({
+        roots: ['/ws/apps/api'],
+        workspaceFolders: ['/ws'],
+        preference,
+        memory,
+      });
+      coordinator.resolveInitial();
+
+      coordinator.clearSelection({ forgetPreference: true });
+
+      expect(selection.getSnapshot().repoRoot).toBeNull();
+      expect(memory.raw).toBeNull();
+    });
+
+    it('keeps the remembered root when the selection is cleared without forgetPreference', () => {
+      const memory = makeMemory('/ws/apps/api');
+      const { coordinator } = makeCoordinator({
+        roots: ['/ws/apps/api'],
+        workspaceFolders: ['/ws'],
+        memory,
+      });
+      coordinator.resolveInitial();
+
+      coordinator.clearSelection();
+
+      expect(memory.raw).toBe('/ws/apps/api');
+    });
+
+    it('drops a matching remembered root when the selected repository becomes invalid', () => {
+      const memory = makeMemory('/ws/apps/api');
+      const { coordinator, rootsGetter } = makeCoordinator({
+        roots: ['/ws/apps/api'],
+        workspaceFolders: ['/ws'],
+        memory,
+      });
+      coordinator.resolveInitial();
+
+      rootsGetter.mockReturnValue([]);
+      coordinator.onSelectedRepoInvalid();
+
+      expect(memory.raw).toBeNull();
     });
   });
 });

@@ -6,6 +6,16 @@ export type ManualRepoPreference = {
   set(root: string | null): void;
 };
 
+/**
+ * Last effective repository root, used only to restore a selection on startup.
+ * Unlike {@link ManualRepoPreference} this is not a user intent and never gates
+ * the editor or fallback rules.
+ */
+export type RepoMemory = {
+  get(): string | null;
+  set(root: string | null): void;
+};
+
 export class SelectionCoordinator {
   private locked = false;
   private indexAuthoritative = false;
@@ -23,9 +33,10 @@ export class SelectionCoordinator {
      * repo (cold start / scan still running). Typically walks ancestors for `.git`.
      */
     private readonly discoverGitRoot?: (filePath: string) => string | null,
+    private readonly memory?: RepoMemory,
   ) {}
 
-  /** Apply preference → editor → authoritative fallback → empty. Clears stale preference when the index is authoritative. */
+  /** Apply preference → editor → remembered → authoritative fallback → empty. Clears stale preference when the index is authoritative. */
   resolveInitial(): void {
     const pref = this.preference.get();
     if (pref != null) {
@@ -34,8 +45,7 @@ export class SelectionCoordinator {
         this.indexContains(normalizedPref) &&
         !this.isReSelectSuppressed(normalizedPref)
       ) {
-        this.selection.setRepo(normalizedPref);
-        this.locked = true;
+        this.select(normalizedPref);
         return;
       }
       // Clear a stale preference only once the index is authoritative (scan
@@ -49,16 +59,19 @@ export class SelectionCoordinator {
     if (!this.hasPendingManualPreference()) {
       const owner = this.editorOwningRoot();
       if (owner != null && !this.isReSelectSuppressed(normalizeRepoPath(owner))) {
-        this.selection.setRepo(owner);
-        this.locked = true;
+        this.select(owner);
+        return;
+      }
+      const remembered = this.rememberedRoot();
+      if (remembered != null && !this.isReSelectSuppressed(remembered)) {
+        this.select(remembered);
         return;
       }
     }
 
     const fallback = this.fallbackRepoRoot();
     if (fallback != null && !this.isReSelectSuppressed(fallback)) {
-      this.selection.setRepo(fallback);
-      this.locked = true;
+      this.select(fallback);
       return;
     }
     this.selection.setRepo(null);
@@ -78,8 +91,7 @@ export class SelectionCoordinator {
         this.indexContains(normalizedPref) &&
         !this.isReSelectSuppressed(normalizedPref)
       ) {
-        this.selection.setRepo(normalizedPref);
-        this.locked = true;
+        this.select(normalizedPref);
         return;
       }
       if (this.indexAuthoritative && !this.indexContains(normalizedPref)) {
@@ -98,8 +110,12 @@ export class SelectionCoordinator {
     if (this.selection.getSnapshot().repoRoot === null) {
       const owner = this.editorOwningRoot();
       if (owner != null && !this.isReSelectSuppressed(normalizeRepoPath(owner))) {
-        this.selection.setRepo(owner);
-        this.locked = true;
+        this.select(owner);
+        return;
+      }
+      const remembered = this.rememberedRoot();
+      if (remembered != null && !this.isReSelectSuppressed(remembered)) {
+        this.select(remembered);
       }
     }
   }
@@ -121,6 +137,11 @@ export class SelectionCoordinator {
     const pref = this.preference.get();
     if (pref != null && !this.indexContains(normalizeRepoPath(pref))) {
       this.preference.set(null);
+    }
+
+    const remembered = this.memory?.get() ?? null;
+    if (remembered != null && !this.indexContains(normalizeRepoPath(remembered))) {
+      this.memory?.set(null);
     }
 
     if (this.locked) {
@@ -148,8 +169,7 @@ export class SelectionCoordinator {
     }
     const owner = this.editorOwningRoot();
     if (owner != null && !this.isReSelectSuppressed(normalizeRepoPath(owner))) {
-      this.selection.setRepo(owner);
-      this.locked = true;
+      this.select(owner);
     }
   }
 
@@ -161,8 +181,7 @@ export class SelectionCoordinator {
   selectManually(repoRoot: string): void {
     this.reSelectSuppressedRoot = null;
     const normalized = normalizeRepoPath(repoRoot);
-    this.selection.setRepo(normalized);
-    this.locked = true;
+    this.select(normalized);
     this.preference.set(normalized);
   }
 
@@ -180,6 +199,9 @@ export class SelectionCoordinator {
       normalizeRepoPath(pref) === normalizeRepoPath(current)
     ) {
       this.preference.set(null);
+    }
+    if (current != null) {
+      this.forgetMemoryFor(normalizeRepoPath(current));
     }
     this.selection.setRepo(null);
     this.locked = false;
@@ -204,6 +226,9 @@ export class SelectionCoordinator {
         normalizeRepoPath(pref) === normalizeRepoPath(current)
       ) {
         this.preference.set(null);
+      }
+      if (current != null) {
+        this.forgetMemoryFor(normalizeRepoPath(current));
       }
     }
     if (current != null) {
@@ -273,5 +298,39 @@ export class SelectionCoordinator {
       return indexed[0]!;
     }
     return null;
+  }
+
+  /** Select and lock a repository, recording it as the last effective root. */
+  private select(root: string): void {
+    this.selection.setRepo(root);
+    this.locked = true;
+    this.memory?.set(normalizeRepoPath(root));
+  }
+
+  /**
+   * Remembered root that is present in the index. Clears the memory once the
+   * index is authoritative and the root is gone.
+   */
+  private rememberedRoot(): string | null {
+    const remembered = this.memory?.get() ?? null;
+    if (remembered == null) {
+      return null;
+    }
+    const normalized = normalizeRepoPath(remembered);
+    if (this.indexContains(normalized)) {
+      return normalized;
+    }
+    if (this.indexAuthoritative) {
+      this.memory?.set(null);
+    }
+    return null;
+  }
+
+  /** True when the remembered root points at `normalizedRoot`. */
+  private forgetMemoryFor(normalizedRoot: string): void {
+    const remembered = this.memory?.get() ?? null;
+    if (remembered != null && normalizeRepoPath(remembered) === normalizedRoot) {
+      this.memory?.set(null);
+    }
   }
 }

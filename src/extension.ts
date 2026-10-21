@@ -35,6 +35,7 @@ import { CommitsViewProvider } from './views/commits/CommitsViewProvider';
 import { FilesViewProvider } from './views/files/FilesViewProvider';
 
 const MANUAL_REPO_ROOT_KEY = 'gitgress.manualRepoRoot';
+const LAST_REPO_ROOT_KEY = 'gitgress.lastRepoRoot';
 const HAS_REPOSITORIES_CONTEXT = 'gitgress.hasRepositories';
 const INDEX_DB_FILE = 'repos.sqlite';
 
@@ -142,6 +143,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     workspaceRoots,
     (filePath) =>
       discoverGitRootFromPath(filePath, (candidate) => fs.existsSync(candidate)),
+    {
+      get: () => context.workspaceState.get<string>(LAST_REPO_ROOT_KEY) ?? null,
+      set: (root) => {
+        void context.workspaceState.update(LAST_REPO_ROOT_KEY, root ?? undefined);
+      },
+    },
   );
   const commitsProvider = new CommitsViewProvider(
     context.extensionUri,
