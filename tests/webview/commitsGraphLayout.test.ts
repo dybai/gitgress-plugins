@@ -79,10 +79,10 @@ describe('commits ref pills tags and overflow', () => {
 describe('commits sticky chrome', () => {
   it('keeps scan progress and branch header outside a dedicated list scroller', () => {
     expect(html).toMatch(
-      /id="scan-progress"[\s\S]*class="branch-header"[\s\S]*id="commit-scroll"[\s\S]*id="commit-list"/,
+      /id="scan-progress"[\s\S]*class="branch-header(?: hidden)?"[\s\S]*id="commit-scroll"[\s\S]*id="commit-list"/,
     );
     expect(html).not.toMatch(
-      /id="commit-scroll"[\s\S]*class="branch-header"/,
+      /id="commit-scroll"[\s\S]*class="branch-header/,
     );
   });
 
