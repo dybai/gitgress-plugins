@@ -8,6 +8,7 @@ import {
 } from '../../protocol/messages';
 import type { SelectionSnapshot, SelectionState } from '../../state/SelectionState';
 import { buildCommitsPayload } from './buildCommitsPayload';
+import { buildEmptyMessage } from './buildEmptyMessage';
 import { CommitWindowController } from './CommitWindowController';
 import {
   shouldReloadCommits,
@@ -172,7 +173,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     }
     this.lastPostedEmptyReason = next;
     this.lastLoadedCommitIds.clear();
-    void view.webview.postMessage({ type: 'empty', reason: next });
+    void view.webview.postMessage(buildEmptyMessage({ reason: next }));
   }
 
   private postScanStatus(status: ScanStatus): void {
@@ -232,13 +233,17 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     if (repoRoot === null) {
       const reason = emptyRepoReason(this.getIndexedRootCount());
       this.lastPostedEmptyReason = reason;
-      this.applyMessage({ type: 'empty', reason }, version, view);
+      this.applyMessage(buildEmptyMessage({ reason }), version, view);
       return;
     }
     this.lastPostedEmptyReason = null;
     if (branch === null || branch === '') {
       this.applyMessage(
-        { type: 'empty', reason: 'noCommits', message: 'No branch selected' },
+        buildEmptyMessage({
+          reason: 'noCommits',
+          repoRoot,
+          message: 'No branch selected',
+        }),
         version,
         view,
       );
@@ -251,7 +256,11 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
         return;
       }
       if (state.loaded.length === 0) {
-        this.applyMessage({ type: 'empty', reason: 'noCommits' }, version, view);
+        this.applyMessage(
+          buildEmptyMessage({ reason: 'noCommits', repoRoot, branch }),
+          version,
+          view,
+        );
         return;
       }
       await this.postWindow(snapshot, version, view);
@@ -261,7 +270,12 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
       }
       this.lastLoadedCommitIds.clear();
       this.applyMessage(
-        { type: 'empty', reason: 'error', message: 'Unable to load commits' },
+        buildEmptyMessage({
+          reason: 'error',
+          repoRoot,
+          branch,
+          message: 'Unable to load commits',
+        }),
         version,
         view,
       );
