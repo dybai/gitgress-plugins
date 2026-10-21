@@ -88,9 +88,19 @@
       ],
       "view/title": [
         {
+          "command": "gitgress.selectRepository",
+          "when": "view == gitgress.commits && gitgress.hasRepositories",
+          "group": "navigation@1"
+        },
+        {
+          "command": "gitgress.switchBranch",
+          "when": "view == gitgress.commits && gitgress.hasRepository",
+          "group": "navigation@2"
+        },
+        {
           "command": "gitgress.refresh",
           "when": "view == gitgress.commits || view == gitgress.files",
-          "group": "navigation"
+          "group": "navigation@3"
         }
       ]
     }

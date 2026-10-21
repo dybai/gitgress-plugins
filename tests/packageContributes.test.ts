@@ -11,7 +11,7 @@ describe('package contributes', () => {
     expect(files!.type).toBe('webview');
   });
 
-  it('keeps select/switch commands but not in the view title bar', () => {
+  it('keeps select/switch commands and offers them in the view title bar', () => {
     const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
 
     expect(
@@ -33,16 +33,29 @@ describe('package contributes', () => {
       title: 'GitGress: Switch Branch',
       icon: '$(git-branch)',
     });
+  });
 
-    const titleMenus: Array<{ command: string }> = pkg.contributes.menus['view/title'];
-    expect(titleMenus.some((m) => m.command === 'gitgress.selectRepository')).toBe(false);
-    expect(titleMenus.some((m) => m.command === 'gitgress.switchBranch')).toBe(false);
+  it('gates the title-bar entries by repository context', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+    const titleMenus: Array<{ command: string; when?: string; group?: string }> =
+      pkg.contributes.menus['view/title'];
+
     expect(titleMenus).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          command: 'gitgress.selectRepository',
+          when: 'view == gitgress.commits && gitgress.hasRepositories',
+          group: 'navigation@1',
+        }),
+        expect.objectContaining({
+          command: 'gitgress.switchBranch',
+          when: 'view == gitgress.commits && gitgress.hasRepository',
+          group: 'navigation@2',
+        }),
+        expect.objectContaining({
           command: 'gitgress.refresh',
           when: 'view == gitgress.commits || view == gitgress.files',
-          group: 'navigation',
+          group: 'navigation@3',
         }),
       ]),
     );
