@@ -14,6 +14,10 @@ import { DiffService } from './diff/DiffService';
 import { GITGRESS_SCHEME } from './diff/gitgressUri';
 import { GitgressContentProvider } from './diff/GitgressContentProvider';
 import { pickActiveFilePath } from './extension/activeFilePath';
+import {
+  publishHasRepository,
+  type ExecuteCommand,
+} from './extension/repositoryContext';
 import { GitHistoryWatcher } from './git/GitHistoryWatcher';
 import { GitService } from './git/GitService';
 import { gitHistoryWatchPaths } from './git/historyWatchPaths';
@@ -32,8 +36,10 @@ import { FilesViewProvider } from './views/files/FilesViewProvider';
 
 const MANUAL_REPO_ROOT_KEY = 'gitgress.manualRepoRoot';
 const HAS_REPOSITORIES_CONTEXT = 'gitgress.hasRepositories';
-const HAS_REPOSITORY_CONTEXT = 'gitgress.hasRepository';
 const INDEX_DB_FILE = 'repos.sqlite';
+
+const executeCommand: ExecuteCommand = (command, ...args) =>
+  vscode.commands.executeCommand(command, ...args);
 
 function createGitHistoryFileWatcher(layout: GitDirectoryLayout) {
   const watchers: vscode.FileSystemWatcher[] = [];
@@ -251,10 +257,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     },
     {
       dispose: selection.subscribe((snapshot) => {
-        void vscode.commands.executeCommand(
-          HAS_REPOSITORY_CONTEXT,
-          snapshot.repoRoot !== null,
-        );
+        publishHasRepository(executeCommand, snapshot.repoRoot !== null);
       }),
     },
     vscode.window.registerWebviewViewProvider(
@@ -316,10 +319,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push({ dispose: index.subscribe(onIndexChanged) });
   onIndexChanged();
   await ensureBranch();
-  await vscode.commands.executeCommand(
-    HAS_REPOSITORY_CONTEXT,
-    selection.getSnapshot().repoRoot !== null,
-  );
+  publishHasRepository(executeCommand, selection.getSnapshot().repoRoot !== null);
 }
 
 export function deactivate(): void {}
