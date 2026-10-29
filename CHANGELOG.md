@@ -2,6 +2,13 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.19
+
+- Commits list scrollbar sits flush against the webview's right edge: the
+  view now overrides VS Code's injected `body { padding: 0 20px }` on the
+  right side only, so the scrollbar no longer floats ~20px away from the
+  window edge.
+
 ## 1.0.18
 
 - When repositories are indexed, Commits keeps a way to pick a repository and

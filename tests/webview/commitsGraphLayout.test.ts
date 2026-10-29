@@ -94,6 +94,12 @@ describe('commits sticky chrome', () => {
     expect(css).toMatch(/\.commit-scroll\s*\{[\s\S]*?overflow:\s*auto/);
   });
 
+  it('overrides the injected body padding so the list scrollbar hugs the right edge', () => {
+    expect(css).toMatch(
+      /html\s+body\s*\{[^}]*padding-right:\s*0\s*;/,
+    );
+  });
+
   it('owns list scroll on #commit-scroll for pagination, anchoring, and page keys', () => {
     expect(source).toMatch(
       /scrollContainer\s*=\s*\(\)\s*=>\s*document\.querySelector\(['"]#commit-scroll['"]\)/,

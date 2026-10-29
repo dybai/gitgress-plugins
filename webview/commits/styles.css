@@ -20,6 +20,12 @@ body {
   font-size: var(--vscode-font-size);
 }
 
+/* VS Code injects `body { padding: 0 20px }` into every webview; zeroing the
+   right side keeps the commit list scrollbar flush with the window edge. */
+html body {
+  padding-right: 0;
+}
+
 main {
   display: flex;
   flex-direction: column;
