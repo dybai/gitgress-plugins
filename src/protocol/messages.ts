@@ -52,7 +52,8 @@ export type HostToWebview =
       branch?: string;
     }
   | { type: 'selectionCleared' }
-  | { type: 'scanStatus'; status: 'idle' | 'scanning' };
+  | { type: 'scanStatus'; status: 'idle' | 'scanning' }
+  | { type: 'revealCommit'; commitId: string };
 
 export type WebviewToHost =
   | { type: 'ready' }
@@ -162,6 +163,8 @@ export function isHostMessage(value: unknown): value is HostToWebview {
       return true;
     case 'scanStatus':
       return value.status === 'idle' || value.status === 'scanning';
+    case 'revealCommit':
+      return isNonEmptyString(value.commitId);
     default:
       return false;
   }

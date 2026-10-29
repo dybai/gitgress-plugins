@@ -71,7 +71,7 @@ function makeHarness() {
   const provider = new CommitsViewProvider({} as vscode.Uri, selection, git);
   const { view, postMessage, messageHandlers } = makeFakeView();
   provider.resolveWebviewView(view as unknown as vscode.WebviewView);
-  return { selection, postMessage, messageHandlers };
+  return { selection, postMessage, messageHandlers, provider, git };
 }
 
 async function loadSingleCommitWindow(harness: ReturnType<typeof makeHarness>) {
@@ -129,5 +129,85 @@ describe('CommitsViewProvider copyCommitHash', () => {
 
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(writeText).toHaveBeenCalledWith(COMMIT_ID);
+  });
+});
+
+describe('CommitsViewProvider revealCommit', () => {
+  it('posts revealCommit when the id is already loaded', async () => {
+    const harness = makeHarness();
+    await loadSingleCommitWindow(harness);
+    harness.postMessage.mockClear();
+
+    await harness.provider.revealCommit(COMMIT_ID);
+
+    expect(harness.postMessage).toHaveBeenCalledWith({
+      type: 'revealCommit',
+      commitId: COMMIT_ID,
+    });
+  });
+
+  it('rebuilds the window when the id is on the branch but not loaded', async () => {
+    const olderId = 'b'.repeat(40);
+    const harness = makeHarness();
+    await loadSingleCommitWindow(harness);
+    harness.git.isCommitOnBranch.mockResolvedValue(true);
+    harness.git.log.mockImplementation(async (_root: string, ref: string) => {
+      if (ref === olderId) {
+        return [
+          {
+            id: olderId,
+            parentIds: [],
+            subject: 'Older',
+            authorName: 'Ann',
+            authorDateIso: '2026-10-01T00:00:00Z',
+            fullMessage: 'Older',
+            additions: 1,
+            deletions: 0,
+          },
+        ];
+      }
+      return [
+        {
+          id: COMMIT_ID,
+          parentIds: [],
+          subject: 'Add copy button',
+          authorName: 'Ann',
+          authorDateIso: '2026-10-29T00:00:00Z',
+          fullMessage: 'Add copy button',
+          additions: 3,
+          deletions: 1,
+        },
+      ];
+    });
+    harness.git.logOlderThan.mockResolvedValue([]);
+    harness.postMessage.mockClear();
+
+    await harness.provider.revealCommit(olderId);
+
+    await vi.waitFor(() => {
+      expect(harness.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'commitsLoaded',
+          selectedCommitId: olderId,
+        }),
+      );
+    });
+  });
+
+  it('shows an error empty state when the commit is not on the branch', async () => {
+    const harness = makeHarness();
+    await loadSingleCommitWindow(harness);
+    harness.git.isCommitOnBranch.mockResolvedValue(false);
+    harness.postMessage.mockClear();
+
+    await harness.provider.revealCommit('c'.repeat(40));
+
+    expect(harness.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'empty',
+        reason: 'error',
+        message: 'Commit is not on the current branch',
+      }),
+    );
   });
 });

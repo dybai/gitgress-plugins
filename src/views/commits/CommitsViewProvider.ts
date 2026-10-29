@@ -153,6 +153,59 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
   }
 
   /**
+   * Reveal a commit from the editor inline blame in the Commits view.
+   * Posts a lightweight message when the commit is already loaded; otherwise
+   * rebuilds the window around it, or shows an error empty state when the
+   * commit is not on the current branch.
+   */
+  async revealCommit(commitId: string): Promise<void> {
+    const view = this.view;
+    const snapshot = this.selection.getSnapshot();
+    const { repoRoot, branch } = snapshot;
+    if (view === undefined || repoRoot === null || branch === null || branch === '') {
+      return;
+    }
+    if (this.lastLoadedCommitIds.has(commitId)) {
+      void view.webview.postMessage({ type: 'revealCommit', commitId });
+      this.selection.selectCommit(commitId);
+      return;
+    }
+
+    const onBranch = await this.gitService.isCommitOnBranch(repoRoot, branch, commitId);
+    if (!onBranch) {
+      const version = ++this.loadVersion;
+      this.applyMessage(
+        buildEmptyMessage({
+          reason: 'error',
+          repoRoot,
+          branch,
+          message: 'Commit is not on the current branch',
+        }),
+        version,
+        view,
+      );
+      return;
+    }
+
+    const version = ++this.loadVersion;
+    const result = await this.controller.reconcileAfterHistoryChange(
+      repoRoot,
+      branch,
+      commitId,
+    );
+    if (result.superseded || !this.isCurrentLoad(version, view)) {
+      return;
+    }
+    this.selection.selectCommit(commitId);
+    await this.postWindow(
+      { ...this.selection.getSnapshot(), selectedCommitId: commitId },
+      version,
+      view,
+      result.tip,
+    );
+  }
+
+  /**
    * Index length changed while no repo is selected; refresh the empty-state
    * reason without starting a new commit load ({@link loadVersion}).
    */

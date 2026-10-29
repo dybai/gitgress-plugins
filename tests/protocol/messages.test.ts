@@ -188,6 +188,18 @@ describe('isHostMessage', () => {
   it('rejects empty with unknown reason', () => {
     expect(isHostMessage({ type: 'empty', reason: 'noFolder' })).toBe(false);
   });
+
+  it('accepts revealCommit with commitId', () => {
+    expect(isHostMessage({ type: 'revealCommit', commitId: 'abc' })).toBe(true);
+  });
+
+  it('rejects revealCommit without commitId', () => {
+    expect(isHostMessage({ type: 'revealCommit' })).toBe(false);
+  });
+
+  it('rejects revealCommit with empty commitId', () => {
+    expect(isHostMessage({ type: 'revealCommit', commitId: '' })).toBe(false);
+  });
 });
 
 describe('isWebviewToHost', () => {
