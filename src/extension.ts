@@ -1,6 +1,15 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
+import {
+  BlameController,
+  type DecorationOptionsLike,
+  type DecorationTypeLike,
+  type TextEditorLike,
+} from './blame/BlameController';
+import { BlameHoverProvider } from './blame/BlameHoverProvider';
+import { BlameService } from './blame/BlameService';
+import { conflictModeForChoice, isGitLensCurrentLineBlameOn } from './blame/conflictPolicy';
 import { registerOpenFileDiff } from './commands/openFileDiff';
 import { refreshRepository, gitErrorMessage } from './commands/refresh';
 import { runWithSelectionRecovery } from './commands/selectionRecovery';
@@ -126,7 +135,9 @@ function createRepoIndex(context: vscode.ExtensionContext): RepoIndexService {
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const gitService = new GitService(createRunGit());
+  const runGit = createRunGit();
+  const gitService = new GitService(runGit);
+  const blameService = new BlameService(runGit);
   const selection = new SelectionState();
   const diffService = new DiffService();
   const index = createRepoIndex(context);
@@ -192,6 +203,99 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const showError = async (error: unknown): Promise<void> => {
     await vscode.window.showErrorMessage(gitErrorMessage(error));
   };
+
+  // --- Editor inline blame -------------------------------------------------
+  const blameAskChoice = (): Promise<
+    'keepGitLens' | 'keepGitGress' | 'showBoth' | undefined
+  > =>
+    new Promise((resolve) => {
+      void vscode.window
+        .showInformationMessage(
+          'GitLens also shows current-line blame. Which annotation should GitGress show?',
+          'Keep GitLens',
+          'Keep GitGress',
+          'Show both',
+        )
+        .then((choice) => {
+          if (choice === 'Keep GitLens') {
+            resolve('keepGitLens');
+          } else if (choice === 'Keep GitGress') {
+            resolve('keepGitGress');
+          } else if (choice === 'Show both') {
+            resolve('showBoth');
+          } else {
+            resolve(undefined);
+          }
+        });
+    });
+
+  const blameDeps = {
+    blameService,
+    resolveRepo: async (candidates: string[]) =>
+      coordinator.resolveRepoForBlame(candidates),
+    getLocale: () => vscode.env.language,
+    getEnabled: () =>
+      vscode.workspace.getConfiguration('gitgress').get<boolean>('editorBlame.enabled', true),
+    getConflictMode: () =>
+      vscode.workspace.getConfiguration('gitgress').get<'ask' | 'alwaysShow' | 'defer'>(
+        'editorBlame.conflictMode',
+        'ask',
+      ),
+    detectConflict: () => isGitLensCurrentLineBlameOn(vscode.extensions.getExtension, (section) => vscode.workspace.getConfiguration(section)),
+    askConflict: async (): Promise<void> => {
+      const choice = await blameAskChoice();
+      if (choice === undefined) {
+        return; // dismissal keeps the ask mode for the next session
+      }
+      const mode = conflictModeForChoice(choice);
+      await vscode.workspace
+        .getConfiguration('gitgress')
+        .update('editorBlame.conflictMode', mode, vscode.ConfigurationTarget.Global);
+    },
+    onDidChangeTextEditorSelection: (handler: () => void) =>
+      vscode.window.onDidChangeTextEditorSelection(handler),
+    onDidChangeActiveTextEditor: (handler: () => void) =>
+      vscode.window.onDidChangeActiveTextEditor(handler),
+    createDecorationType: () =>
+      vscode.window.createTextEditorDecorationType({
+        after: { color: new vscode.ThemeColor('editorCodeLens.foreground') },
+      }),
+    applyDecorations: (
+      editor: TextEditorLike,
+      type: DecorationTypeLike,
+      options: DecorationOptionsLike[],
+    ) => {
+      // The editor here is always the real vscode.TextEditor; TextEditorLike
+      // is the narrowed view the controller reasons about.
+      const target = editor as vscode.TextEditor;
+      const decorationType = type as vscode.TextEditorDecorationType;
+      // Editor decoration types only render `renderOptions.after` per-range;
+      // the cursor line decoration is drawn by keying the range on the line.
+      const line = options[0]?.line0Based;
+      if (line === undefined) {
+        target.setDecorations(decorationType, []);
+        return;
+      }
+      const line0Based = Math.max(0, line);
+      target.setDecorations(decorationType, [
+        {
+          range: new vscode.Range(line0Based, 0, line0Based, 0),
+          renderOptions: {
+            after: { contentText: `  ${options[0].contentText}` },
+          },
+        },
+      ]);
+    },
+    getActiveEditor: () => vscode.window.activeTextEditor,
+  };
+  const blameController = new BlameController(blameDeps);
+  const blameHoverProvider = new BlameHoverProvider({
+    resolveRepo: blameDeps.resolveRepo,
+    getCachedBlame: (fsPath, line0Based) => blameController.getCachedBlame(fsPath, line0Based),
+    commitDetails: (repoRoot, commitId) => blameService.commitDetails(repoRoot, commitId),
+    getLocale: blameDeps.getLocale,
+  });
+  blameController.activate();
   const reloadDeps = () => ({
     gitService,
     selection,
@@ -279,6 +383,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       GITGRESS_SCHEME,
       new GitgressContentProvider(gitService),
     ),
+    blameController,
+    vscode.languages.registerHoverProvider('*', blameHoverProvider),
     registerOpenFileDiff(selection, diffService),
     vscode.commands.registerCommand('gitgress.switchBranch', async () => {
       try {
@@ -318,6 +424,41 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       coordinator.onActiveEditorChanged();
     }),
     vscode.workspace.onDidChangeWorkspaceFolders(reloadRepository),
+    vscode.commands.registerCommand('gitgress.copyBlameHash', async (commitId: unknown) => {
+      try {
+        if (typeof commitId !== 'string' || commitId === '') {
+          return;
+        }
+        await vscode.env.clipboard.writeText(commitId);
+      } catch (error) {
+        await showError(error);
+      }
+    }),
+    vscode.commands.registerCommand('gitgress.revealFromBlame', async (commitId: unknown) => {
+      try {
+        if (typeof commitId !== 'string' || commitId === '') {
+          return;
+        }
+        try {
+          await vscode.commands.executeCommand('gitgress.commits.focus');
+        } catch {
+          // Older VS Code without the view-focus command id: fall back to the
+          // view container.
+          await vscode.commands.executeCommand('workbench.view.extension.gitgress');
+        }
+        await commitsProvider.revealCommit(commitId);
+      } catch (error) {
+        await showError(error);
+      }
+    }),
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (
+        event.affectsConfiguration('gitgress.editorBlame') ||
+        event.affectsConfiguration('gitlens.currentLine')
+      ) {
+        blameController.refresh();
+      }
+    }),
   );
 
   await index.start();

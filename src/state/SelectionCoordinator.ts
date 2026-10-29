@@ -173,6 +173,26 @@ export class SelectionCoordinator {
     }
   }
 
+  /**
+   * Resolve the Git root that owns a file for the editor inline blame, without
+   * changing the repository selection. Prefers the most specific indexed root
+   * containing the file; falls back to walking ancestors for `.git`
+   * (cold start / scan still running).
+   */
+  resolveRepoForBlame(candidates: readonly string[]): string | null {
+    for (const candidate of candidates) {
+      const owner = findOwningRepoRoot(candidate, this.getIndexedRoots());
+      if (owner != null) {
+        return owner;
+      }
+      const discovered = this.discoverGitRoot?.(candidate) ?? null;
+      if (discovered != null) {
+        return normalizeRepoPath(discovered);
+      }
+    }
+    return null;
+  }
+
   /** Allow index / coordinator resolution after explicit reload or workspace change. */
   clearReSelectSuppression(): void {
     this.reSelectSuppressedRoot = null;

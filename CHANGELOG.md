@@ -2,9 +2,14 @@
 
 All notable changes to GitGress are documented in this file.
 
-## 1.0.21
+## 1.0.22
 
-- (pending) Editor inline blame — filled in by later tasks.
+- Editor shows a current-line blame annotation at the end of the active line
+  (`author, relative time (MM-DD)`), with a hover popup for the commit message,
+  `+N −M` stats, Reveal in GitGress, and Copy Hash.
+- Adds `gitgress.editorBlame.enabled` and `gitgress.editorBlame.conflictMode`
+  so GitGress can ask, always show, or defer when GitLens current-line blame
+  is also enabled.
 
 ## 1.0.20
 
