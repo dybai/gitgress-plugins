@@ -60,4 +60,32 @@ describe('package contributes', () => {
       ]),
     );
   });
+
+  it('registers editorBlame settings and hidden blame commands', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+    const props = pkg.contributes.configuration.properties;
+    expect(props['gitgress.editorBlame.enabled']).toMatchObject({
+      type: 'boolean',
+      default: true,
+    });
+    expect(props['gitgress.editorBlame.conflictMode']).toMatchObject({
+      type: 'string',
+      default: 'ask',
+    });
+    expect(props['gitgress.editorBlame.conflictMode'].enum).toEqual([
+      'ask',
+      'alwaysShow',
+      'defer',
+    ]);
+    for (const command of ['gitgress.revealFromBlame', 'gitgress.copyBlameHash']) {
+      expect(
+        pkg.contributes.commands.find((c: { command: string }) => c.command === command),
+      ).toBeDefined();
+      expect(
+        pkg.contributes.menus.commandPalette.find(
+          (m: { command: string; when?: string }) => m.command === command,
+        ),
+      ).toEqual({ command, when: 'false' });
+    }
+  });
 });

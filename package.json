@@ -58,6 +58,22 @@
         }
       ]
     },
+    "configuration": {
+      "title": "GitGress",
+      "properties": {
+        "gitgress.editorBlame.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a current-line blame annotation at the end of the active editor line."
+        },
+        "gitgress.editorBlame.conflictMode": {
+          "type": "string",
+          "enum": ["ask", "alwaysShow", "defer"],
+          "default": "ask",
+          "description": "When another extension (GitLens) also shows current-line blame: ask once per session, always show GitGress, or defer to the other extension."
+        }
+      }
+    },
     "commands": [
       {
         "command": "gitgress.selectRepository",
@@ -77,12 +93,28 @@
       {
         "command": "gitgress.openFileDiff",
         "title": "GitGress: Open File Diff"
+      },
+      {
+        "command": "gitgress.revealFromBlame",
+        "title": "GitGress: Reveal Commit from Blame"
+      },
+      {
+        "command": "gitgress.copyBlameHash",
+        "title": "GitGress: Copy Blame Commit Hash"
       }
     ],
     "menus": {
       "commandPalette": [
         {
           "command": "gitgress.openFileDiff",
+          "when": "false"
+        },
+        {
+          "command": "gitgress.revealFromBlame",
+          "when": "false"
+        },
+        {
+          "command": "gitgress.copyBlameHash",
           "when": "false"
         }
       ],
