@@ -2,6 +2,13 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.20
+
+- Commit rows show a copy button to the left of the short hash in the meta
+  line. It appears on hover or keyboard focus, copies the full commit hash to
+  the clipboard, briefly flips to a check mark, and does not change the row
+  selection.
+
 ## 1.0.19
 
 - Commits list scrollbar sits flush against the webview's right edge: the

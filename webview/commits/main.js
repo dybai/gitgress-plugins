@@ -366,6 +366,82 @@ import {
     parent.append(jump);
   };
 
+  const COPY_HASH_FEEDBACK_MS = 1200;
+
+  const appendSvgGroup = (svg) => {
+    const group = svgElement('g', {
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': '1.2',
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    });
+    svg.append(group);
+    return group;
+  };
+
+  const createCopyHashButton = (commit) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'copy-hash';
+    button.title = 'Copy commit hash';
+    button.setAttribute('aria-label', 'Copy commit hash');
+
+    const copyIcon = svgElement('svg', {
+      class: 'copy-hash-icon',
+      viewBox: '0 0 16 16',
+      'aria-hidden': 'true',
+      focusable: 'false',
+    });
+    const copyGroup = appendSvgGroup(copyIcon);
+    copyGroup.append(
+      svgElement('rect', {
+        x: '5.5',
+        y: '5.5',
+        width: '8',
+        height: '9',
+        rx: '1.5',
+      }),
+      svgElement('path', {
+        d: 'M10.5 5.5V3A1.5 1.5 0 0 0 9 1.5H4A1.5 1.5 0 0 0 2.5 3v6A1.5 1.5 0 0 0 4 10.5h1.5',
+      }),
+    );
+
+    const checkIcon = svgElement('svg', {
+      class: 'copy-hash-check',
+      viewBox: '0 0 16 16',
+      'aria-hidden': 'true',
+      focusable: 'false',
+    });
+    checkIcon.append(
+      svgElement('path', {
+        d: 'M13.5 4.5 6.5 11.5 2.5 7.5',
+        fill: 'none',
+        stroke: 'currentColor',
+        'stroke-width': '1.8',
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+      }),
+    );
+
+    button.append(copyIcon, checkIcon);
+
+    let feedbackTimer;
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      vscode.postMessage({ type: 'copyCommitHash', commitId: commit.id });
+      button.classList.add('copied');
+      clearTimeout(feedbackTimer);
+      feedbackTimer = setTimeout(() => {
+        feedbackTimer = undefined;
+        button.classList.remove('copied');
+      }, COPY_HASH_FEEDBACK_MS);
+    });
+
+    return button;
+  };
+
   function packPillRow(pills) {
     const nodes = refPillNodes.get(pills);
     if (!nodes) return;
@@ -469,6 +545,7 @@ import {
 
     const metaRow = document.createElement('span');
     metaRow.className = 'meta-row';
+    metaRow.append(createCopyHashButton(commit));
     appendTextElement(
       metaRow,
       'span',

@@ -214,6 +214,18 @@ describe('isWebviewToHost', () => {
   it('accepts selectRepository from webview', () => {
     expect(isWebviewToHost({ type: 'selectRepository' })).toBe(true);
   });
+
+  it('accepts copyCommitHash with commitId', () => {
+    expect(isWebviewToHost({ type: 'copyCommitHash', commitId: 'abc' })).toBe(true);
+  });
+
+  it('rejects copyCommitHash without commitId', () => {
+    expect(isWebviewToHost({ type: 'copyCommitHash' })).toBe(false);
+  });
+
+  it('rejects copyCommitHash with an empty commitId', () => {
+    expect(isWebviewToHost({ type: 'copyCommitHash', commitId: '' })).toBe(false);
+  });
 });
 
 describe('empty message repo context', () => {

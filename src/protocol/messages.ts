@@ -57,6 +57,7 @@ export type HostToWebview =
 export type WebviewToHost =
   | { type: 'ready' }
   | { type: 'commitSelected'; commitId: string }
+  | { type: 'copyCommitHash'; commitId: string }
   | { type: 'switchBranch' }
   | { type: 'selectRepository' }
   | { type: 'retry' }
@@ -179,6 +180,7 @@ export function isWebviewToHost(value: unknown): value is WebviewToHost {
     case 'loadNewer':
       return true;
     case 'commitSelected':
+    case 'copyCommitHash':
       return isNonEmptyString(value.commitId);
     default:
       return false;

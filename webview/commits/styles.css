@@ -412,6 +412,56 @@ button {
   white-space: nowrap;
 }
 
+.copy-hash {
+  flex: 0 0 auto;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 100ms;
+}
+
+.commit:hover .copy-hash,
+.commit:focus-within .copy-hash {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.copy-hash:hover {
+  color: var(--vscode-foreground);
+}
+
+.copy-hash:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+}
+
+.copy-hash-icon,
+.copy-hash-check {
+  width: 12px;
+  height: 12px;
+}
+
+.copy-hash .copy-hash-check {
+  display: none;
+}
+
+.copy-hash.copied .copy-hash-icon {
+  display: none;
+}
+
+.copy-hash.copied .copy-hash-check {
+  display: block;
+}
+
 .hover-card {
   position: fixed;
   z-index: 1000;
