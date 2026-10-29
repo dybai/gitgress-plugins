@@ -2,6 +2,10 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.21
+
+- (pending) Editor inline blame — filled in by later tasks.
+
 ## 1.0.20
 
 - Commit rows show a copy button to the left of the short hash in the meta
