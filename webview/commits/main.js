@@ -837,6 +837,18 @@ import {
       selectedButton = undefined;
       return;
     }
+    if (data.type === 'revealCommit' && typeof data.commitId === 'string') {
+      const button = commitList.querySelector(
+        `[data-commit-id="${CSS.escape(data.commitId)}"]`,
+      );
+      if (!(button instanceof HTMLButtonElement)) {
+        return;
+      }
+      selectCommitButton(button);
+      button.focus({ preventScroll: true });
+      button.scrollIntoView({ block: 'nearest' });
+      return;
+    }
     if (data.type === 'empty') {
       lastHasMore = false;
       lastHasNewer = false;

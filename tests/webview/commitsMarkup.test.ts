@@ -42,4 +42,10 @@ describe('commits webview markup', () => {
     expect(js.match(/applyHeader\(/g)).toHaveLength(2);
     expect(js).toMatch(/data\.type === 'empty'[\s\S]*?applyHeader\(/);
   });
+
+  it('handles revealCommit by selecting and scrolling the matching row', () => {
+    expect(js).toMatch(
+      /data\.type === 'revealCommit'[\s\S]*?scrollIntoView\(\{\s*block:\s*'nearest'\s*\}\)/,
+    );
+  });
 });
