@@ -207,7 +207,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
         return;
       case 'copyCommitHash':
         if (this.lastLoadedCommitIds.has(message.commitId)) {
-          void vscode.env.clipboard.writeText(message.commitId).catch(() => {
+          void vscode.env.clipboard.writeText(message.commitId).then(undefined, () => {
             // Clipboard failures are non-actionable; the webview shows optimistic feedback.
           });
         }
