@@ -2,7 +2,7 @@
 
 All notable changes to GitGress are documented in this file.
 
-## 1.0.22
+## 1.0.21
 
 - Editor shows a current-line blame annotation at the end of the active line
   (`author, relative time (MM-DD)`), with a hover popup for the commit message,
