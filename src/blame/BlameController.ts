@@ -191,7 +191,7 @@ export class BlameController {
       if (mode === 'ask' && conflict && !this.askedThisSession) {
         this.askedThisSession = true;
         await this.deps.askConflict();
-        // The ask may have just persisted `defer` (Keep GitLens); honor the
+        // The ask may have just persisted `defer` (Hide GitGress's); honor the
         // user's choice immediately instead of rendering one last annotation.
         if (!shouldRenderBlame(enabled, this.deps.getConflictMode(), conflict)) {
           apply([]);
