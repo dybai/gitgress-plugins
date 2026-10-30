@@ -811,10 +811,10 @@ import {
 
   window.addEventListener('message', ({ data }) => {
     if (!data || typeof data !== 'object' || typeof data.type !== 'string') return;
-    if (data.type === 'scanStatus') {
+    if (data.type === 'busyStatus') {
       const scanProgress = document.getElementById('scan-progress');
       if (scanProgress) {
-        scanProgress.classList.toggle('hidden', data.status !== 'scanning');
+        scanProgress.classList.toggle('hidden', !data.active);
       }
       return;
     }

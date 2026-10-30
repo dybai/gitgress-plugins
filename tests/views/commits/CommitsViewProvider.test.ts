@@ -47,6 +47,31 @@ function makeFakeView() {
   return { view, postMessage, messageHandlers };
 }
 
+function makeBusy() {
+  const releases: Array<() => void> = [];
+  const listeners = new Set<(active: boolean) => void>();
+  return {
+    acquire: vi.fn(() => {
+      const release = () => {
+        const index = releases.indexOf(release);
+        if (index >= 0) {
+          releases.splice(index, 1);
+        }
+      };
+      releases.push(release);
+      return release;
+    }),
+    subscribe: (listener: (active: boolean) => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    getActive: () => releases.length > 0,
+    listeners,
+  };
+}
+
 function makeHarness() {
   const git = {
     log: vi.fn(async () => [
@@ -68,10 +93,16 @@ function makeHarness() {
     listTips: vi.fn(async () => []),
   } as unknown as GitService;
   const selection = new SelectionState();
-  const provider = new CommitsViewProvider({} as vscode.Uri, selection, git);
+  const busy = makeBusy();
+  const provider = new CommitsViewProvider(
+    {} as vscode.Uri,
+    selection,
+    git,
+    busy,
+  );
   const { view, postMessage, messageHandlers } = makeFakeView();
   provider.resolveWebviewView(view as unknown as vscode.WebviewView);
-  return { selection, postMessage, messageHandlers, provider, git };
+  return { selection, postMessage, messageHandlers, provider, git, busy };
 }
 
 async function loadSingleCommitWindow(harness: ReturnType<typeof makeHarness>) {
@@ -225,5 +256,78 @@ describe('CommitsViewProvider branch resolution empty state', () => {
     expect(harness.postMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: 'empty', reason: 'noCommits' }),
     );
+  });
+});
+
+describe('CommitsViewProvider busy indicator', () => {
+  it('holds the indicator during load and releases at a terminal state', async () => {
+    const harness = makeHarness();
+    await loadSingleCommitWindow(harness);
+
+    expect(harness.busy.acquire).toHaveBeenCalledTimes(1);
+    expect(harness.busy.getActive()).toBe(false);
+  });
+
+  it('releases the indicator when the load fails', async () => {
+    const harness = makeHarness();
+    harness.git.log.mockRejectedValue(new Error('git failed'));
+    harness.selection.setRepo('/repo');
+    harness.selection.setBranch('main');
+
+    await vi.waitFor(() => {
+      expect(harness.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'empty', reason: 'error' }),
+      );
+    });
+    expect(harness.busy.getActive()).toBe(false);
+  });
+
+  it('does not acquire while the branch is unresolved', async () => {
+    const harness = makeHarness();
+    harness.selection.setRepo('/repo');
+
+    await vi.waitFor(() => {
+      expect(harness.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'empty', reason: 'noBranch' }),
+      );
+    });
+    expect(harness.busy.acquire).not.toHaveBeenCalled();
+  });
+
+  it('syncs the busy state on ready and forwards busy transitions', async () => {
+    const harness = makeHarness();
+    harness.postMessage.mockClear();
+
+    harness.messageHandlers[0]({ type: 'ready' });
+    await vi.waitFor(() => {
+      expect(harness.postMessage).toHaveBeenCalledWith({
+        type: 'busyStatus',
+        active: false,
+      });
+    });
+
+    for (const listener of harness.busy.listeners) {
+      listener(true);
+    }
+    expect(harness.postMessage).toHaveBeenCalledWith({
+      type: 'busyStatus',
+      active: true,
+    });
+  });
+
+  it('stops forwarding busy transitions after dispose', async () => {
+    const harness = makeHarness();
+    harness.provider.dispose();
+    harness.postMessage.mockClear();
+
+    for (const listener of harness.busy.listeners) {
+      listener(true);
+    }
+
+    expect(harness.postMessage).not.toHaveBeenCalledWith({
+      type: 'busyStatus',
+      active: true,
+    });
+    expect(harness.busy.listeners.size).toBe(0);
   });
 });

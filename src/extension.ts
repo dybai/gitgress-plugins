@@ -37,6 +37,7 @@ import { tipsFingerprint } from './git/tipsFingerprint';
 import { discoverGitRootFromPath } from './repoIndex/discoverGitRootFromPath';
 import { createNodeScanFs } from './repoIndex/nodeScanFs';
 import { RepoIndexService, type ScanStatus } from './repoIndex/RepoIndexService';
+import { BusyIndicator } from './views/commits/BusyIndicator';
 import { createMemoryRepoIndexStore } from './repoIndex/repoIndexStore';
 import { createSqliteRepoIndexStore } from './repoIndex/sqliteRepoIndexStore';
 import { SelectionCoordinator } from './state/SelectionCoordinator';
@@ -162,11 +163,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       },
     },
   );
+  const busyIndicator = new BusyIndicator();
   const commitsProvider = new CommitsViewProvider(
     context.extensionUri,
     selection,
     gitService,
-    () => index.getScanStatus(),
+    busyIndicator,
     () => index.getRepos().length,
   );
   const filesProvider = new FilesViewProvider(
@@ -327,13 +329,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     runWithSelectionRecovery(recoveryDeps, () => explicitRefreshGitgress(reloadDeps()));
 
   let lastScanStatus: ScanStatus | null = null;
+  let scanBusyRelease: (() => void) | null = null;
   const onIndexChanged = (): void => {
     const status = index.getScanStatus();
     if (status === 'scanning' && lastScanStatus !== 'scanning') {
       coordinator.onScanStarted();
     }
+    if (status === 'scanning' && scanBusyRelease === null) {
+      scanBusyRelease = busyIndicator.acquire();
+    }
     coordinator.onIndexUpdated();
-    commitsProvider.notifyScanStatus(status);
     commitsProvider.notifyIndexChanged();
     void vscode.commands.executeCommand(
       'setContext',
@@ -342,6 +347,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     );
     if (status === 'idle' && lastScanStatus !== 'idle') {
       coordinator.onScanIdle();
+    }
+    if (status === 'idle' && scanBusyRelease !== null) {
+      scanBusyRelease();
+      scanBusyRelease = null;
     }
     lastScanStatus = status;
   };

@@ -20,7 +20,13 @@ import {
   emptyRepoReason,
   type EmptyRepoReason,
 } from './emptyRepoReason';
-import { scanStatusMessage, type ScanStatus } from './scanStatusMessage';
+import { busyStatusMessage } from './busyStatusMessage';
+
+export type BusyDeps = {
+  acquire: () => () => void;
+  subscribe: (listener: (active: boolean) => void) => () => void;
+  getActive: () => boolean;
+};
 
 export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   private view: vscode.WebviewView | undefined;
@@ -30,15 +36,19 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
   private loadVersion = 0;
   private lastPostedEmptyReason: EmptyRepoReason | null = null;
   private readonly controller: CommitWindowController;
+  private readonly busy: BusyDeps;
+  private readonly unsubscribeBusy: () => void;
 
   constructor(
     private readonly extensionUri: vscode.Uri,
     private readonly selection: SelectionState,
     private readonly gitService: GitService,
-    private readonly getScanStatus: () => ScanStatus = () => 'idle',
+    busy: BusyDeps,
     private readonly getIndexedRootCount: () => number = () => 0,
   ) {
+    this.busy = busy;
     this.controller = new CommitWindowController(gitService);
+    this.unsubscribeBusy = busy.subscribe((active) => this.postBusyStatus(active));
     this.unsubscribe = selection.subscribe((snapshot) => {
       if (!shouldReloadCommits(this.lastLoadContext, snapshot)) {
         return;
@@ -144,15 +154,6 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
   }
 
   /**
-   * Push the current repo-index scan status to the webview so it can toggle
-   * the indeterminate progress bar. Does not touch commit load state
-   * ({@link loadVersion}) or pagination.
-   */
-  notifyScanStatus(status: ScanStatus): void {
-    this.postScanStatus(status);
-  }
-
-  /**
    * Reveal a commit from the editor inline blame in the Commits view.
    * Posts a lightweight message when the commit is already loaded; otherwise
    * rebuilds the window around it, or shows an error empty state when the
@@ -229,15 +230,16 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     void view.webview.postMessage(buildEmptyMessage({ reason: next }));
   }
 
-  private postScanStatus(status: ScanStatus): void {
+  private postBusyStatus(active: boolean): void {
     const view = this.view;
     if (view === undefined) {
       return;
     }
-    void view.webview.postMessage(scanStatusMessage(status));
+    void view.webview.postMessage(busyStatusMessage(active));
   }
 
   dispose(): void {
+    this.unsubscribeBusy();
     this.unsubscribe();
     this.view = undefined;
     this.lastLoadedCommitIds.clear();
@@ -249,7 +251,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
       case 'ready':
       case 'retry': {
         const loadPromise = this.load(this.selection.getSnapshot());
-        this.postScanStatus(this.getScanStatus());
+        this.postBusyStatus(this.busy.getActive());
         await loadPromise;
         return;
       }
@@ -307,19 +309,24 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     }
 
     try {
-      const state = await this.controller.resetFromTip(repoRoot, branch);
-      if (!this.isCurrentLoad(version, view)) {
-        return;
+      const release = this.busy.acquire();
+      try {
+        const state = await this.controller.resetFromTip(repoRoot, branch);
+        if (!this.isCurrentLoad(version, view)) {
+          return;
+        }
+        if (state.loaded.length === 0) {
+          this.applyMessage(
+            buildEmptyMessage({ reason: 'noCommits', repoRoot, branch }),
+            version,
+            view,
+          );
+          return;
+        }
+        await this.postWindow(snapshot, version, view);
+      } finally {
+        release();
       }
-      if (state.loaded.length === 0) {
-        this.applyMessage(
-          buildEmptyMessage({ reason: 'noCommits', repoRoot, branch }),
-          version,
-          view,
-        );
-        return;
-      }
-      await this.postWindow(snapshot, version, view);
     } catch {
       if (!this.isCurrentLoad(version, view)) {
         return;
