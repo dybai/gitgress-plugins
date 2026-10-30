@@ -53,6 +53,7 @@ export type HostToWebview =
     }
   | { type: 'selectionCleared' }
   | { type: 'scanStatus'; status: 'idle' | 'scanning' }
+  | { type: 'busyStatus'; active: boolean }
   | { type: 'revealCommit'; commitId: string };
 
 export type WebviewToHost =
@@ -163,6 +164,8 @@ export function isHostMessage(value: unknown): value is HostToWebview {
       return true;
     case 'scanStatus':
       return value.status === 'idle' || value.status === 'scanning';
+    case 'busyStatus':
+      return typeof value.active === 'boolean';
     case 'revealCommit':
       return isNonEmptyString(value.commitId);
     default:

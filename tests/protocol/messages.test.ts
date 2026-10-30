@@ -177,6 +177,18 @@ describe('isHostMessage', () => {
     expect(isHostMessage({ type: 'scanStatus', status: 'done' })).toBe(false);
   });
 
+  it('accepts busyStatus active', () => {
+    expect(isHostMessage({ type: 'busyStatus', active: true })).toBe(true);
+  });
+
+  it('accepts busyStatus inactive', () => {
+    expect(isHostMessage({ type: 'busyStatus', active: false })).toBe(true);
+  });
+
+  it('rejects busyStatus with non-boolean active', () => {
+    expect(isHostMessage({ type: 'busyStatus', active: 'yes' })).toBe(false);
+  });
+
   it('accepts empty with noSelection', () => {
     expect(isHostMessage({ type: 'empty', reason: 'noSelection' })).toBe(true);
   });
