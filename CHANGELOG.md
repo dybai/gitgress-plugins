@@ -2,6 +2,16 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.24
+
+- The extension now activates when the window finishes loading, so the inline
+  blame annotation works immediately without first clicking the GitGress view.
+- The inline blame annotation color is softer (35% alpha gray), matching the
+  visual weight of other blame extensions; customize it via
+  `gitgress.blameAnnotationForeground` in `workbench.colorCustomizations`.
+- The blame hover popup's actions are now icon buttons (reveal / copy) with a
+  visible separator between them; hover an icon for its label.
+
 ## 1.0.23
 
 - Inline blame annotation sits 8px away from the code and uses the editor's
