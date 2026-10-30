@@ -2,6 +2,12 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.31
+
+- The inline blame annotation no longer drifts to the wrong side of the line
+  after edits that delete or shift the decorated line (for example repeated
+  `Ctrl+D`): it is cleared immediately and recomputed for the new content.
+
 ## 1.0.30
 
 - The Commits view's progress bar is now shared between repository scanning

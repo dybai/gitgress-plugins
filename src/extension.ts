@@ -261,6 +261,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       vscode.window.onDidChangeTextEditorSelection(handler),
     onDidChangeActiveTextEditor: (handler: () => void) =>
       vscode.window.onDidChangeActiveTextEditor(handler),
+    onDidChangeTextDocument: (handler: (event?: unknown) => void) =>
+      vscode.workspace.onDidChangeTextDocument((event) => handler(event)),
     createDecorationType: () =>
       vscode.window.createTextEditorDecorationType({
         after: {

@@ -29,6 +29,7 @@ export type BlameControllerDeps = {
   askConflict: () => Promise<void>; // no-op in tests; real impl shows the message
   onDidChangeTextEditorSelection: (handler: (event?: unknown) => void) => unknown;
   onDidChangeActiveTextEditor: (handler: (event?: unknown) => void) => unknown;
+  onDidChangeTextDocument: (handler: (event?: unknown) => void) => unknown;
   createDecorationType: () => DecorationTypeLike;
   /**
    * Apply decorations to an editor. Injected so tests observe plain calls;
@@ -71,6 +72,7 @@ export class BlameController {
   private appliedRequestSeq = 0;
   private disposed = false;
   private lastDecorated: TextEditorLike | undefined;
+  private lastDecoratedLine: number | undefined;
 
   constructor(private readonly deps: BlameControllerDeps) {
     this.debounceMs = deps.debounceMs ?? DEFAULT_DEBOUNCE_MS;
@@ -86,6 +88,9 @@ export class BlameController {
     });
     this.deps.onDidChangeActiveTextEditor(() => {
       this.schedule();
+    });
+    this.deps.onDidChangeTextDocument((event) => {
+      this.handleDocumentChanged(event);
     });
     this.schedule();
   }
@@ -137,6 +142,42 @@ export class BlameController {
     }, this.debounceMs);
   }
 
+  /**
+   * An edit at or above the decorated line replaces that line's content or
+   * shifts its position, so the painted annotation no longer describes the
+   * line it sits on: clear it synchronously (the decoration range VS Code
+   * tracked through the edit can collapse to the wrong spot) and recompute
+   * for the current cursor. Edits below the line, or in other documents,
+   * leave the annotation valid.
+   */
+  private handleDocumentChanged(event?: unknown): void {
+    const decorated = this.lastDecorated;
+    const line = this.lastDecoratedLine;
+    if (decorated === undefined || line === undefined) {
+      return;
+    }
+    const info = event as
+      | {
+          document?: { uri?: { fsPath?: string } };
+          contentChanges?: Array<{ range?: { start?: { line?: number } } }>;
+        }
+      | undefined;
+    const changedFs = info?.document?.uri?.fsPath;
+    if (changedFs !== decorated.document.uri.fsPath) {
+      return;
+    }
+    const touchesDecoratedLine = (info?.contentChanges ?? []).some(
+      (change) => (change.range?.start?.line ?? Number.MAX_SAFE_INTEGER) <= line,
+    );
+    if (!touchesDecoratedLine) {
+      return;
+    }
+    this.deps.applyDecorations(decorated, this.decorationType, []);
+    this.lastDecorated = undefined;
+    this.lastDecoratedLine = undefined;
+    this.schedule();
+  }
+
   private isEligible(editor: TextEditorLike): boolean {
     const document = editor.document;
     if (document.uri.scheme !== 'file') {
@@ -184,6 +225,7 @@ export class BlameController {
       }
       this.deps.applyDecorations(current, this.decorationType, options);
       this.lastDecorated = options.length > 0 ? current : undefined;
+      this.lastDecoratedLine = options.length > 0 ? options[0].line0Based : undefined;
     };
 
     try {

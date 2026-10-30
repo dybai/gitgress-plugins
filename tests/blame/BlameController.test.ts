@@ -32,6 +32,7 @@ type Harness = {
   askConflict: ReturnType<typeof vi.fn>;
   fireSelection: () => void;
   fireActiveEditor: () => void;
+  fireDocumentChange: (event?: unknown) => void;
   controller: BlameController;
 };
 
@@ -61,6 +62,7 @@ function makeHarness(
   const applied: Array<[unknown, unknown, unknown[]]> = [];
   const selectionHandlers: Array<() => void> = [];
   const activeHandlers: Array<() => void> = [];
+  const documentHandlers: Array<(event?: unknown) => void> = [];
   const blameLine = vi.fn(async () => blameResult);
 
   const deps: BlameControllerDeps = {
@@ -76,6 +78,9 @@ function makeHarness(
     },
     onDidChangeActiveTextEditor: (handler) => {
       activeHandlers.push(handler);
+    },
+    onDidChangeTextDocument: (handler) => {
+      documentHandlers.push(handler);
     },
     createDecorationType: vi.fn(() => ({ key: 'decoration', dispose: () => {} })),
     applyDecorations: vi.fn((editor, type, options) => {
@@ -100,6 +105,9 @@ function makeHarness(
     },
     fireActiveEditor: () => {
       for (const handler of activeHandlers) handler();
+    },
+    fireDocumentChange: (event?: unknown) => {
+      for (const handler of documentHandlers) handler(event);
     },
     controller,
   };
@@ -338,6 +346,85 @@ describe('BlameController', () => {
     expect(clearOptions).toEqual([]);
     const [, , paintOptions] = h.applied[2]!;
     expect((paintOptions as unknown[]).length).toBe(1);
+  });
+
+  describe('document-change invalidation', () => {
+    const changeEvent = (overrides: { fsPath?: string; startLine?: number } = {}): unknown => ({
+      document: { uri: { fsPath: overrides.fsPath ?? 'D:/repo/src/file.ts' } },
+      contentChanges: [{ range: { start: { line: overrides.startLine ?? 2 } } }],
+    });
+
+    it('clears immediately and recomputes when an edit touches the decorated line', async () => {
+      const h = makeHarness(makeBlame());
+      h.fireSelection();
+      await flushMicrotasks();
+      const paintedEditor = h.applied[0]![0];
+      expect(lastAppliedOptions(h)).toHaveLength(1);
+
+      // Edit ON the decorated line (line 2), cursor not moved: no selection event.
+      h.fireDocumentChange(changeEvent({ startLine: 2 }));
+
+      // Cleared synchronously, before the debounce window elapses.
+      const [clearEditor, , clearOptions] = h.applied[1]!;
+      expect(clearEditor).toBe(paintedEditor);
+      expect(clearOptions).toEqual([]);
+
+      await flushMicrotasks();
+      expect(h.blameLine).toHaveBeenCalledTimes(2);
+      expect(h.applied.length).toBe(3);
+      expect(lastAppliedOptions(h)).toHaveLength(1);
+    });
+
+    it('clears immediately and recomputes when an edit above shifts the decorated line', async () => {
+      const h = makeHarness(makeBlame());
+      h.fireSelection();
+      await flushMicrotasks();
+      expect(h.applied.length).toBe(1);
+
+      h.fireDocumentChange(changeEvent({ startLine: 1 }));
+      expect(h.applied.length).toBe(2);
+      expect(lastAppliedOptions(h)).toEqual([]);
+
+      await flushMicrotasks();
+      expect(h.blameLine).toHaveBeenCalledTimes(2);
+      expect(lastAppliedOptions(h)).toHaveLength(1);
+    });
+
+    it('keeps the decoration when the edit is below the decorated line', async () => {
+      const h = makeHarness(makeBlame());
+      h.fireSelection();
+      await flushMicrotasks();
+      expect(h.applied.length).toBe(1);
+
+      h.fireDocumentChange(changeEvent({ startLine: 3 }));
+
+      expect(h.applied.length).toBe(1);
+      expect(h.blameLine).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the decoration when a different document changes', async () => {
+      const h = makeHarness(makeBlame());
+      h.fireSelection();
+      await flushMicrotasks();
+      expect(h.applied.length).toBe(1);
+
+      h.fireDocumentChange(changeEvent({ fsPath: 'D:/repo/src/other.ts' }));
+
+      expect(h.applied.length).toBe(1);
+      expect(h.blameLine).toHaveBeenCalledTimes(1);
+    });
+
+    it('ignores malformed events instead of clearing', async () => {
+      const h = makeHarness(makeBlame());
+      h.fireSelection();
+      await flushMicrotasks();
+      expect(h.applied.length).toBe(1);
+
+      h.fireDocumentChange({ document: { uri: { fsPath: 'D:/repo/src/file.ts' } } });
+
+      expect(h.applied.length).toBe(1);
+      expect(h.blameLine).toHaveBeenCalledTimes(1);
+    });
   });
 });
 
