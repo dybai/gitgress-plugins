@@ -55,8 +55,10 @@ export function buildBlameHoverMarkdown(input: BlameHoverMarkdownInput): string 
     )} · \u002B${additions} \u2212${deletions}`,
   );
   lines.push('');
-  lines.push(`[${escapeMarkdownText('Reveal in GitGress')}](${commandLink('gitgress.revealFromBlame', commitId)})`);
-  lines.push(`[${escapeMarkdownText('Copy Hash')}](${commandLink('gitgress.copyBlameHash', commitId)})`);
+  lines.push(
+    `[$(git-commit)](${commandLink('gitgress.revealFromBlame', commitId)} "Reveal in GitGress") | ` +
+      `[$(copy)](${commandLink('gitgress.copyBlameHash', commitId)} "Copy Hash")`,
+  );
   return lines.join('\n');
 }
 

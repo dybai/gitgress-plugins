@@ -55,4 +55,44 @@ describe('buildBlameHoverMarkdown', () => {
     expect(md).toContain('Ann');
     expect(md).toContain('+0 −0');
   });
+
+  it('renders the two actions as codicon buttons separated by a pipe', () => {
+    const commitId = 'd'.repeat(40);
+    const md = buildBlameHoverMarkdown({
+      commitId,
+      authorName: 'dybai',
+      authorTimeUnix: 1000,
+      summary: 's',
+      fullMessage: 's',
+      additions: 0,
+      deletions: 0,
+      nowMs: 2000,
+      locale: 'en',
+    });
+    const args = encodeURIComponent(JSON.stringify([commitId]));
+    const actionLine = md.split('\n').at(-1);
+    expect(actionLine).toBe(
+      `[$(git-commit)](command:gitgress.revealFromBlame?${args} "Reveal in GitGress") | ` +
+        `[$(copy)](command:gitgress.copyBlameHash?${args} "Copy Hash")`,
+    );
+  });
+
+  it('keeps codicon tokens unescaped so the icons render', () => {
+    const md = buildBlameHoverMarkdown({
+      commitId: 'e'.repeat(40),
+      authorName: 'dybai',
+      authorTimeUnix: 1000,
+      summary: 's',
+      fullMessage: 's',
+      additions: 0,
+      deletions: 0,
+      nowMs: 2000,
+      locale: 'en',
+    });
+    expect(md).toContain('$(git-commit)');
+    expect(md).toContain('$(copy)');
+    // The escaped form would break codicon rendering; guard against regressions.
+    expect(md).not.toContain('\\$\\(git\\-commit\\)');
+    expect(md).not.toContain('\\$\\(copy\\)');
+  });
 });
