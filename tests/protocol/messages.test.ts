@@ -165,18 +165,6 @@ describe('isHostMessage', () => {
     ).toBe(false);
   });
 
-  it('accepts scanStatus idle', () => {
-    expect(isHostMessage({ type: 'scanStatus', status: 'idle' })).toBe(true);
-  });
-
-  it('accepts scanStatus scanning', () => {
-    expect(isHostMessage({ type: 'scanStatus', status: 'scanning' })).toBe(true);
-  });
-
-  it('rejects scanStatus with invalid status', () => {
-    expect(isHostMessage({ type: 'scanStatus', status: 'done' })).toBe(false);
-  });
-
   it('accepts busyStatus active', () => {
     expect(isHostMessage({ type: 'busyStatus', active: true })).toBe(true);
   });
