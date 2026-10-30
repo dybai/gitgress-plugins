@@ -10,6 +10,7 @@ import {
 import { BlameHoverProvider } from './blame/BlameHoverProvider';
 import { BlameService } from './blame/BlameService';
 import { conflictModeForChoice, detectConflictingAnnotation } from './blame/conflictPolicy';
+import { lineEndCharacter } from './blame/decorationAnchor';
 import { registerOpenFileDiff } from './commands/openFileDiff';
 import { refreshRepository, gitErrorMessage } from './commands/refresh';
 import { runWithSelectionRecovery } from './commands/selectionRecovery';
@@ -279,9 +280,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         return;
       }
       const line0Based = Math.max(0, line);
+      if (line0Based >= target.document.lineCount) {
+        target.setDecorations(decorationType, []);
+        return;
+      }
+      const endCharacter = lineEndCharacter(target.document.lineAt(line0Based).text);
       target.setDecorations(decorationType, [
         {
-          range: new vscode.Range(line0Based, 0, line0Based, 0),
+          range: new vscode.Range(line0Based, endCharacter, line0Based, endCharacter),
           renderOptions: {
             after: { contentText: `  ${options[0].contentText}` },
           },
