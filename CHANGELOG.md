@@ -2,6 +2,15 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.27
+
+- The blame hover popup's reveal button now shows the commit's short hash and
+  the actions sit next to each other without a separator.
+- The hover popup's date is now the full localized date and time (for example
+  `September 2nd, 2026 6:18 PM`) instead of a short `MM-DD`.
+- The inline blame annotation now hides when the editor loses focus and
+  reappears when you click back into the editor.
+
 ## 1.0.26
 
 - The inline blame annotation now ends truncated subjects with a proper
