@@ -2,6 +2,12 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.23
+
+- Inline blame annotation sits 8px away from the code and uses the editor's
+  ghost-text color, so it reads as a subtle hint instead of competing with
+  the code.
+
 ## 1.0.22
 
 - Inline blame annotation now renders at the end of the cursor line instead

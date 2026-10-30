@@ -261,7 +261,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       vscode.window.onDidChangeActiveTextEditor(handler),
     createDecorationType: () =>
       vscode.window.createTextEditorDecorationType({
-        after: { color: new vscode.ThemeColor('editorCodeLens.foreground') },
+        after: {
+          color: new vscode.ThemeColor('editorGhostText.foreground'),
+          margin: '0 0 0 8px',
+        },
       }),
     applyDecorations: (
       editor: TextEditorLike,
@@ -289,7 +292,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         {
           range: new vscode.Range(line0Based, endCharacter, line0Based, endCharacter),
           renderOptions: {
-            after: { contentText: `  ${options[0].contentText}` },
+            after: { contentText: `${options[0].contentText}` },
           },
         },
       ]);
