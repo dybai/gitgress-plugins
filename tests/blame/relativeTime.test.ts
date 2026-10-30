@@ -36,7 +36,7 @@ describe('formatBlameAnnotation', () => {
     const text = formatBlameAnnotation('dybai', thenSec, NOW, 'en', 'a'.repeat(51));
     const bullet = text.indexOf(' • ');
     expect(bullet).toBeGreaterThan(-1);
-    expect(text.slice(bullet + 3)).toBe('a'.repeat(47) + '...');
+    expect(text.slice(bullet + 3)).toBe('a'.repeat(47) + '…');
   });
 
   it('keeps a subject of exactly 50 chars untruncated', () => {

@@ -51,6 +51,6 @@ export function formatBlameAnnotation(
   if (trimmed === '') {
     return prefix;
   }
-  const message = trimmed.length > 50 ? `${trimmed.slice(0, 47)}...` : trimmed;
+  const message = trimmed.length > 50 ? `${trimmed.slice(0, 47)}…` : trimmed;
   return `${prefix} • ${message}`;
 }

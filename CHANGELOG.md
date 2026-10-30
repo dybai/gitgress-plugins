@@ -2,6 +2,11 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.26
+
+- The inline blame annotation now ends truncated subjects with a proper
+  ellipsis character (…) instead of three ASCII dots.
+
 ## 1.0.25
 
 - The inline blame annotation now shows the commit subject after the author
