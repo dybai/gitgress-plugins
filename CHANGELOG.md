@@ -2,6 +2,12 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.25
+
+- The inline blame annotation now shows the commit subject after the author
+  and time, separated by a bullet; subjects longer than 50 characters are
+  truncated with an ellipsis.
+
 ## 1.0.24
 
 - The extension now activates when the window finishes loading, so the inline
