@@ -2,6 +2,15 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.30
+
+- The Commits view's progress bar is now shared between repository scanning
+  and the initial commit load, so it stays visible until commits are actually
+  ready instead of disappearing mid-load on slower machines.
+- The Commits view now shows "Resolving branch…" instead of a false
+  "No commits found on this branch." while the display branch is being
+  resolved after a repository is selected.
+
 ## 1.0.29
 
 - The inline blame annotation now hides when the editor loses focus and
