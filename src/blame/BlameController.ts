@@ -245,6 +245,7 @@ export class BlameController {
             blame.authorTimeUnix,
             this.nowMs(),
             this.deps.getLocale(),
+            blame.summary,
           ),
         },
       ]);

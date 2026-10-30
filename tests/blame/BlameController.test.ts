@@ -179,7 +179,8 @@ describe('BlameController', () => {
   });
 
   it('shows a decoration matching formatBlameAnnotation when blame hits', async () => {
-    const h = makeHarness(makeBlame({ authorName: 'Ann', authorTimeUnix: 0 }));
+    const blame = makeBlame({ authorName: 'Ann', authorTimeUnix: 0 });
+    const h = makeHarness(blame);
     h.fireSelection();
     await flushMicrotasks();
     expect(h.applied.length).toBe(1);
@@ -190,7 +191,7 @@ describe('BlameController', () => {
     expect(options).toHaveLength(1);
     expect(options[0].line0Based).toBe(2);
     expect(options[0].contentText).toBe(
-      formatBlameAnnotation('Ann', 0, NOW_MS, 'en'),
+      formatBlameAnnotation('Ann', 0, NOW_MS, 'en', blame.summary),
     );
   });
 

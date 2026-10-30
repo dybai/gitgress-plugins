@@ -38,10 +38,19 @@ export function formatBlameAnnotation(
   authorTimeUnix: number,
   nowMs: number,
   locale: string,
+  // Defaults to '' so the hover footer (a 4-arg caller we must not touch)
+  // keeps rendering `author, time (MM-DD)` unchanged.
+  summary: string = '',
 ): string {
   const relative = formatBlameRelativeTime(authorTimeUnix, nowMs, locale);
   const date = new Date(authorTimeUnix * 1000);
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const dd = String(date.getDate()).padStart(2, '0');
-  return `${author}, ${relative} (${mm}-${dd})`;
+  const prefix = `${author}, ${relative} (${mm}-${dd})`;
+  const trimmed = summary.trim();
+  if (trimmed === '') {
+    return prefix;
+  }
+  const message = trimmed.length > 50 ? `${trimmed.slice(0, 47)}...` : trimmed;
+  return `${prefix} • ${message}`;
 }

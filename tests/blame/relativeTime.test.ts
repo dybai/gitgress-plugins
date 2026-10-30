@@ -24,4 +24,31 @@ describe('formatBlameAnnotation', () => {
     const text = formatBlameAnnotation('dybai', thenSec, NOW, 'en');
     expect(text).toMatch(/^dybai, .+ \(10-26\)$/);
   });
+
+  it('appends the commit subject after the date with a bullet separator', () => {
+    const thenSec = Math.floor((NOW - 3 * 24 * 60 * 60_000) / 1000);
+    const text = formatBlameAnnotation('dybai', thenSec, NOW, 'en', 'fix: login bug');
+    expect(text).toMatch(/^dybai, .+ \(10-26\) • fix: login bug$/);
+  });
+
+  it('truncates subjects longer than 50 chars to 47 plus an ellipsis', () => {
+    const thenSec = Math.floor(NOW / 1000);
+    const text = formatBlameAnnotation('dybai', thenSec, NOW, 'en', 'a'.repeat(51));
+    const bullet = text.indexOf(' • ');
+    expect(bullet).toBeGreaterThan(-1);
+    expect(text.slice(bullet + 3)).toBe('a'.repeat(47) + '...');
+  });
+
+  it('keeps a subject of exactly 50 chars untruncated', () => {
+    const thenSec = Math.floor(NOW / 1000);
+    const text = formatBlameAnnotation('dybai', thenSec, NOW, 'en', 'a'.repeat(50));
+    const bullet = text.indexOf(' • ');
+    expect(text.slice(bullet + 3)).toBe('a'.repeat(50));
+  });
+
+  it('omits the message segment when the subject is empty or blank', () => {
+    const thenSec = Math.floor(NOW / 1000);
+    expect(formatBlameAnnotation('dybai', thenSec, NOW, 'en', '')).not.toContain(' • ');
+    expect(formatBlameAnnotation('dybai', thenSec, NOW, 'en', '   ')).not.toContain(' • ');
+  });
 });
