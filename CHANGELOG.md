@@ -7,18 +7,12 @@ All notable changes to GitGress are documented in this file.
 - The inline blame annotation no longer drifts to the wrong side of the line
   after edits that delete or shift the decorated line (for example repeated
   `Ctrl+D`): it is cleared immediately and recomputed for the new content.
-
-## 1.0.30
-
 - The Commits view's progress bar is now shared between repository scanning
   and the initial commit load, so it stays visible until commits are actually
   ready instead of disappearing mid-load on slower machines.
 - The Commits view now shows "Resolving branch…" instead of a false
   "No commits found on this branch." while the display branch is being
   resolved after a repository is selected.
-
-## 1.0.29
-
 - The inline blame annotation now hides when the editor loses focus and
   reappears when you click back into the editor.
 - The blame hover popup's reveal button now shows the commit's short hash and
