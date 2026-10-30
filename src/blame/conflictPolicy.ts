@@ -1,17 +1,43 @@
 export type ConflictMode = 'ask' | 'alwaysShow' | 'defer';
 
+export type KnownBlameExtension = {
+  id: string;
+  section: string;
+  setting: string;
+  displayName: string;
+};
+
+/**
+ * Extensions known to draw their own current-line blame annotation. VS Code
+ * exposes no API to observe other extensions' decorations, so detection
+ * walks this list; add future blame extensions as new entries.
+ */
+export const KNOWN_BLAME_EXTENSIONS: KnownBlameExtension[] = [
+  {
+    id: 'eamodio.gitlens',
+    section: 'gitlens',
+    setting: 'currentLine.enabled',
+    displayName: 'GitLens',
+  },
+];
+
 type ExtensionLike = { isActive?: boolean } | undefined;
 type ConfigSection = { get: (key: string) => unknown };
 
-export function isGitLensCurrentLineBlameOn(
+export function detectConflictingAnnotation(
   getExtension: (id: string) => ExtensionLike,
   getConfiguration: (section: string) => ConfigSection,
-): boolean {
-  const ext = getExtension('eamodio.gitlens');
-  if (!ext) {
-    return false;
+): KnownBlameExtension | null {
+  for (const entry of KNOWN_BLAME_EXTENSIONS) {
+    const ext = getExtension(entry.id);
+    if (!ext) {
+      continue;
+    }
+    if (getConfiguration(entry.section).get(entry.setting) === true) {
+      return entry;
+    }
   }
-  return getConfiguration('gitlens').get('currentLine.enabled') === true;
+  return null;
 }
 
 export function shouldRenderBlame(
@@ -29,10 +55,7 @@ export function shouldRenderBlame(
 }
 
 export function conflictModeForChoice(
-  choice: 'keepGitLens' | 'keepGitGress' | 'showBoth',
+  choice: 'showBoth' | 'hideGitGress',
 ): ConflictMode {
-  if (choice === 'keepGitLens') {
-    return 'defer';
-  }
-  return 'alwaysShow';
+  return choice === 'hideGitGress' ? 'defer' : 'alwaysShow';
 }

@@ -9,7 +9,7 @@ import {
 } from './blame/BlameController';
 import { BlameHoverProvider } from './blame/BlameHoverProvider';
 import { BlameService } from './blame/BlameService';
-import { conflictModeForChoice, isGitLensCurrentLineBlameOn } from './blame/conflictPolicy';
+import { conflictModeForChoice, detectConflictingAnnotation } from './blame/conflictPolicy';
 import { registerOpenFileDiff } from './commands/openFileDiff';
 import { refreshRepository, gitErrorMessage } from './commands/refresh';
 import { runWithSelectionRecovery } from './commands/selectionRecovery';
@@ -205,24 +205,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   };
 
   // --- Editor inline blame -------------------------------------------------
-  const blameAskChoice = (): Promise<
-    'keepGitLens' | 'keepGitGress' | 'showBoth' | undefined
-  > =>
+  const detectConflictEntry = () =>
+    detectConflictingAnnotation(
+      vscode.extensions.getExtension,
+      (section) => vscode.workspace.getConfiguration(section),
+    );
+
+  const blameAskChoice = (): Promise<'showBoth' | 'hideGitGress' | undefined> =>
     new Promise((resolve) => {
+      const name = detectConflictEntry()?.displayName ?? 'another extension';
       void vscode.window
         .showInformationMessage(
-          'GitLens also shows current-line blame. Which annotation should GitGress show?',
-          'Keep GitLens',
-          'Keep GitGress',
+          `Another extension (${name}) also shows a current-line blame annotation. Both will overlap. Which should GitGress do?`,
           'Show both',
+          "Hide GitGress's",
         )
         .then((choice) => {
-          if (choice === 'Keep GitLens') {
-            resolve('keepGitLens');
-          } else if (choice === 'Keep GitGress') {
-            resolve('keepGitGress');
-          } else if (choice === 'Show both') {
+          if (choice === 'Show both') {
             resolve('showBoth');
+          } else if (choice === "Hide GitGress's") {
+            resolve('hideGitGress');
           } else {
             resolve(undefined);
           }
@@ -241,7 +243,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         'editorBlame.conflictMode',
         'ask',
       ),
-    detectConflict: () => isGitLensCurrentLineBlameOn(vscode.extensions.getExtension, (section) => vscode.workspace.getConfiguration(section)),
+    detectConflict: () => detectConflictEntry() !== null,
     askConflict: async (): Promise<void> => {
       const choice = await blameAskChoice();
       if (choice === undefined) {

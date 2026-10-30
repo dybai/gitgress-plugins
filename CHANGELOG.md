@@ -2,6 +2,14 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.22
+
+- Inline blame annotation now renders at the end of the cursor line instead
+  of being injected before the first character.
+- Conflict dialog reworked: generic wording with the detected extension's
+  name, two choices (Show both / Hide GitGress's), and detection backed by a
+  structured known-extensions list instead of GitLens-only logic.
+
 ## 1.0.21
 
 - Editor shows a current-line blame annotation at the end of the active line

@@ -1,42 +1,70 @@
 import { describe, expect, it } from 'vitest';
 import {
+  KNOWN_BLAME_EXTENSIONS,
   conflictModeForChoice,
-  isGitLensCurrentLineBlameOn,
+  detectConflictingAnnotation,
   shouldRenderBlame,
 } from '../../src/blame/conflictPolicy';
 
-describe('conflictPolicy', () => {
-  it('detects GitLens current-line blame', () => {
+const GITLENS = KNOWN_BLAME_EXTENSIONS[0];
+
+describe('detectConflictingAnnotation', () => {
+  it('detects GitLens current-line blame from the known list', () => {
     expect(
-      isGitLensCurrentLineBlameOn(
-        (id) => (id === 'eamodio.gitlens' ? { isActive: true } : undefined),
+      detectConflictingAnnotation(
+        (id) => (id === GITLENS.id ? { isActive: true } : undefined),
         (section) =>
-          section === 'gitlens'
-            ? { get: (key: string) => (key === 'currentLine.enabled' ? true : undefined) }
+          section === GITLENS.section
+            ? { get: (key: string) => (key === GITLENS.setting ? true : undefined) }
             : { get: () => undefined },
       ),
-    ).toBe(true);
+    ).toEqual(GITLENS);
   });
 
-  it('is false when GitLens is missing', () => {
+  it('returns null when the extension is missing', () => {
     expect(
-      isGitLensCurrentLineBlameOn(
+      detectConflictingAnnotation(
         () => undefined,
         () => ({ get: () => true }),
       ),
-    ).toBe(false);
+    ).toBeNull();
   });
 
-  it('defers when conflictMode is defer and conflict exists', () => {
+  it('returns null when the setting is off', () => {
+    expect(
+      detectConflictingAnnotation(
+        (id) => (id === GITLENS.id ? { isActive: true } : undefined),
+        (section) =>
+          section === GITLENS.section
+            ? { get: (key: string) => (key === GITLENS.setting ? false : undefined) }
+            : { get: () => undefined },
+      ),
+    ).toBeNull();
+  });
+
+  it('lists GitLens with its current-line setting', () => {
+    expect(GITLENS).toEqual({
+      id: 'eamodio.gitlens',
+      section: 'gitlens',
+      setting: 'currentLine.enabled',
+      displayName: 'GitLens',
+    });
+  });
+});
+
+describe('conflictModeForChoice', () => {
+  it('maps the two choices', () => {
+    expect(conflictModeForChoice('showBoth')).toBe('alwaysShow');
+    expect(conflictModeForChoice('hideGitGress')).toBe('defer');
+  });
+});
+
+describe('shouldRenderBlame', () => {
+  it('keeps the original truth table', () => {
+    expect(shouldRenderBlame(false, 'alwaysShow', false)).toBe(false);
     expect(shouldRenderBlame(true, 'defer', true)).toBe(false);
     expect(shouldRenderBlame(true, 'alwaysShow', true)).toBe(true);
     expect(shouldRenderBlame(true, 'ask', true)).toBe(true);
-    expect(shouldRenderBlame(false, 'alwaysShow', false)).toBe(false);
-  });
-
-  it('maps choices to modes', () => {
-    expect(conflictModeForChoice('keepGitLens')).toBe('defer');
-    expect(conflictModeForChoice('keepGitGress')).toBe('alwaysShow');
-    expect(conflictModeForChoice('showBoth')).toBe('alwaysShow');
+    expect(shouldRenderBlame(false, 'alwaysShow', true)).toBe(false);
   });
 });
