@@ -151,6 +151,9 @@ export class BlameController {
    * leave the annotation valid.
    */
   private handleDocumentChanged(event?: unknown): void {
+    if (this.disposed) {
+      return;
+    }
     const decorated = this.lastDecorated;
     const line = this.lastDecoratedLine;
     if (decorated === undefined || line === undefined) {
@@ -210,6 +213,7 @@ export class BlameController {
         if (this.lastDecorated !== undefined) {
           this.deps.applyDecorations(this.lastDecorated, this.decorationType, []);
           this.lastDecorated = undefined;
+          this.lastDecoratedLine = undefined;
         }
         return;
       }
