@@ -4,77 +4,41 @@ All notable changes to GitGress are documented in this file.
 
 ## 1.0.29
 
-- Fine-tuned the blame hover popup's action button spacing (thin space between
-  the reveal icon and the short hash, en-space-width gap before the copy
-  button); documented the Unicode spaces used so the widths are easy to tune.
-
-## 1.0.28
-
-- The blame hover popup's copy button now sits about twice as far from the
-  short hash, and the hash has a little more breathing room from its icon.
-
-## 1.0.27
-
-- The blame hover popup's reveal button now shows the commit's short hash and
-  the actions sit next to each other without a separator.
-- The hover popup's date is now the full localized date and time (for example
-  `September 2nd, 2026 6:18 PM`) instead of a short `MM-DD`.
 - The inline blame annotation now hides when the editor loses focus and
   reappears when you click back into the editor.
-
-## 1.0.26
-
-- The inline blame annotation now ends truncated subjects with a proper
-  ellipsis character (…) instead of three ASCII dots.
-
-## 1.0.25
-
+- The blame hover popup's reveal button now shows the commit's short hash and
+  the copy button sits right next to it without a separator.
+- Hover popup action spacing was tuned: a thin space between the reveal icon
+  and the short hash, and an en-space gap before the copy button (the Unicode
+  spaces used are documented in the source so the widths are easy to tune).
+- The hover popup's date is now the full localized date and time (for example
+  `September 2nd, 2026 6:18 PM`) instead of a short `MM-DD`.
 - The inline blame annotation now shows the commit subject after the author
   and time, separated by a bullet; subjects longer than 50 characters are
   truncated with an ellipsis.
-
-## 1.0.24
-
+- The inline blame annotation sits 50px away from the code and uses a muted
+  35%-alpha gray, matching the visual weight of other blame extensions;
+  customize it via `gitgress.blameAnnotationForeground` in
+  `workbench.colorCustomizations`.
 - The extension now activates when the window finishes loading, so the inline
-  blame annotation works immediately without first clicking the GitGress view.
-- The inline blame annotation color is softer (35% alpha gray), matching the
-  visual weight of other blame extensions; customize it via
-  `gitgress.blameAnnotationForeground` in `workbench.colorCustomizations`.
-- The blame hover popup's actions are now icon buttons (reveal / copy) with a
-  visible separator between them; hover an icon for its label.
-
-## 1.0.23
-
-- Inline blame annotation sits 8px away from the code and uses the editor's
-  ghost-text color, so it reads as a subtle hint instead of competing with
-  the code.
-
-## 1.0.22
-
+  blame works immediately without first clicking the GitGress view.
+- The blame hover popup's actions are icon buttons (reveal / copy); hover an
+  icon for its label.
 - Inline blame annotation now renders at the end of the cursor line instead
   of being injected before the first character.
 - Conflict dialog reworked: generic wording with the detected extension's
   name, two choices (Show both / Hide GitGress's), and detection backed by a
   structured known-extensions list instead of GitLens-only logic.
-
-## 1.0.21
-
 - Editor shows a current-line blame annotation at the end of the active line
-  (`author, relative time (MM-DD)`), with a hover popup for the commit message,
-  `+N −M` stats, Reveal in GitGress, and Copy Hash.
+  (`author, relative time (MM-DD) • subject`), with a hover popup for the
+  commit message, `+N −M` stats, Reveal in GitGress, and Copy Hash.
 - Adds `gitgress.editorBlame.enabled` and `gitgress.editorBlame.conflictMode`
   so GitGress can ask, always show, or defer when GitLens current-line blame
   is also enabled.
-
-## 1.0.20
-
 - Commit rows show a copy button to the left of the short hash in the meta
   line. It appears on hover or keyboard focus, copies the full commit hash to
   the clipboard, briefly flips to a check mark, and does not change the row
   selection.
-
-## 1.0.19
-
 - Commits list scrollbar sits flush against the webview's right edge: the
   view now overrides VS Code's injected `body { padding: 0 20px }` on the
   right side only, so the scrollbar no longer floats ~20px away from the
