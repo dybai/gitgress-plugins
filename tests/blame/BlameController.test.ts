@@ -220,7 +220,12 @@ describe('BlameController', () => {
         blameLine,
         commitDetails: vi.fn(async () => null),
       },
+      // The real activeTextEditor object is stable while focus is unchanged;
+      // a fresh editor per call would look like an editor switch and add a
+      // clear call (see 'clears the previous editor before painting').
+      getActiveEditor: () => active,
     });
+    const active = makeEditor();
 
     // First selection: resolves and applies.
     h.fireSelection();
@@ -300,6 +305,39 @@ describe('BlameController', () => {
     await flushMicrotasks();
     expect(h.controller.getCachedBlame('D:/repo/src/file.ts', 2)).toEqual(makeBlame());
     expect(h.controller.getCachedBlame('D:/repo/src/other.ts', 2)).toBeUndefined();
+  });
+
+  it('hides the annotation when focus leaves text editors', async () => {
+    let active: ReturnType<typeof makeEditor> | undefined = makeEditor();
+    const h = makeHarness(makeBlame(), { getActiveEditor: () => active });
+    h.fireSelection();
+    await flushMicrotasks();
+    expect(h.applied.length).toBe(1);
+    const paintedEditor = h.applied[0]![0];
+    active = undefined;
+    h.fireActiveEditor();
+    await flushMicrotasks();
+    expect(h.applied.length).toBe(2);
+    const [clearEditor, , clearOptions] = h.applied[1]!;
+    expect(clearEditor).toBe(paintedEditor);
+    expect(clearOptions).toEqual([]);
+  });
+
+  it('clears the previous editor before painting a newly focused one', async () => {
+    let active: ReturnType<typeof makeEditor> | undefined = makeEditor();
+    const h = makeHarness(makeBlame(), { getActiveEditor: () => active });
+    h.fireSelection();
+    await flushMicrotasks();
+    const editorA = h.applied[0]![0];
+    active = makeEditor({ uri: { scheme: 'file', fsPath: 'D:/repo/src/other.ts' } });
+    h.fireSelection();
+    await flushMicrotasks();
+    expect(h.applied.length).toBe(3);
+    const [clearEditor, , clearOptions] = h.applied[1]!;
+    expect(clearEditor).toBe(editorA);
+    expect(clearOptions).toEqual([]);
+    const [, , paintOptions] = h.applied[2]!;
+    expect((paintOptions as unknown[]).length).toBe(1);
   });
 });
 

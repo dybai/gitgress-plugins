@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatBlameAnnotation,
+  formatBlameFullDate,
   formatBlameRelativeTime,
 } from '../../src/blame/relativeTime';
 
@@ -50,5 +51,32 @@ describe('formatBlameAnnotation', () => {
     const thenSec = Math.floor(NOW / 1000);
     expect(formatBlameAnnotation('dybai', thenSec, NOW, 'en', '')).not.toContain(' • ');
     expect(formatBlameAnnotation('dybai', thenSec, NOW, 'en', '   ')).not.toContain(' • ');
+  });
+});
+
+describe('formatBlameFullDate', () => {
+  it('formats an English date with ordinal and 12-hour clock', () => {
+    const date = new Date(2026, 8, 2, 18, 18); // Sep 2 2026, 18:18 local
+    expect(formatBlameFullDate(Math.floor(date.getTime() / 1000), 'en')).toBe(
+      'September 2nd, 2026 6:18 PM',
+    );
+  });
+
+  it('uses th for 11th-13th and AM for before noon', () => {
+    const d1 = new Date(2026, 8, 13, 9, 5);
+    expect(formatBlameFullDate(Math.floor(d1.getTime() / 1000), 'en')).toBe(
+      'September 13th, 2026 9:05 AM',
+    );
+    const d2 = new Date(2026, 8, 21, 0, 5);
+    expect(formatBlameFullDate(Math.floor(d2.getTime() / 1000), 'en')).toBe(
+      'September 21st, 2026 12:05 AM',
+    );
+  });
+
+  it('formats a Chinese date as YYYY年M月D日 HH:mm', () => {
+    const date = new Date(2026, 8, 2, 18, 18);
+    expect(formatBlameFullDate(Math.floor(date.getTime() / 1000), 'zh-CN')).toBe(
+      '2026年9月2日 18:18',
+    );
   });
 });

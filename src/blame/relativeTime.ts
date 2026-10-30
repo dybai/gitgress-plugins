@@ -33,6 +33,42 @@ export function formatBlameRelativeTime(
   return rtf.format(Math.round(diffSec / (365 * 86400)), 'year');
 }
 
+function ordinal(n: number): string {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}
+
+export function formatBlameFullDate(unixSeconds: number, locale: string): string {
+  const date = new Date(unixSeconds * 1000);
+  if (Number.isNaN(date.getTime())) {
+    return String(unixSeconds);
+  }
+  const lang = (locale || 'en').toLowerCase();
+  if (lang.startsWith('zh')) {
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    return `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日 ${hh}:${mm}`;
+  }
+  if (lang.startsWith('en')) {
+    const month = date.toLocaleString('en-US', { month: 'long' });
+    const ampm = date.getHours() < 12 ? 'AM' : 'PM';
+    const h12 = date.getHours() % 12 === 0 ? 12 : date.getHours() % 12;
+    const min = String(date.getMinutes()).padStart(2, '0');
+    return `${month} ${ordinal(date.getDate())}, ${date.getFullYear()} ${h12}:${min} ${ampm}`;
+  }
+  return `${new Intl.DateTimeFormat(locale, { dateStyle: 'long' }).format(date)} ${new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(date)}`;
+}
+
 export function formatBlameAnnotation(
   author: string,
   authorTimeUnix: number,

@@ -70,6 +70,7 @@ export class BlameController {
   private requestSeq = 0;
   private appliedRequestSeq = 0;
   private disposed = false;
+  private lastDecorated: TextEditorLike | undefined;
 
   constructor(private readonly deps: BlameControllerDeps) {
     this.debounceMs = deps.debounceMs ?? DEFAULT_DEBOUNCE_MS;
@@ -163,6 +164,12 @@ export class BlameController {
       this.appliedRequestSeq = Math.max(this.appliedRequestSeq, requestId);
       const current = this.deps.getActiveEditor();
       if (current === undefined) {
+        // Focus left text editors (webview, sidebar): hide the annotation on
+        // the editor that still shows it instead of leaving it painted.
+        if (this.lastDecorated !== undefined) {
+          this.deps.applyDecorations(this.lastDecorated, this.decorationType, []);
+          this.lastDecorated = undefined;
+        }
         return;
       }
       if (
@@ -172,7 +179,11 @@ export class BlameController {
       ) {
         return;
       }
+      if (this.lastDecorated !== undefined && this.lastDecorated !== current) {
+        this.deps.applyDecorations(this.lastDecorated, this.decorationType, []);
+      }
       this.deps.applyDecorations(current, this.decorationType, options);
+      this.lastDecorated = options.length > 0 ? current : undefined;
     };
 
     try {

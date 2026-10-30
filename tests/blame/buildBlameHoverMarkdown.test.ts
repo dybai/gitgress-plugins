@@ -56,25 +56,28 @@ describe('buildBlameHoverMarkdown', () => {
     expect(md).toContain('+0 −0');
   });
 
-  it('renders the two actions as codicon buttons separated by a pipe', () => {
+  it('renders the reveal action merged with the short hash and keeps copy beside it', () => {
     const commitId = 'd'.repeat(40);
     const md = buildBlameHoverMarkdown({
       commitId,
       authorName: 'dybai',
-      authorTimeUnix: 1000,
+      authorTimeUnix: Math.floor(Date.parse('2026-09-02T18:18:00') / 1000),
       summary: 's',
       fullMessage: 's',
       additions: 0,
       deletions: 0,
-      nowMs: 2000,
+      nowMs: Date.parse('2026-09-03T18:18:00'),
       locale: 'en',
     });
     const args = encodeURIComponent(JSON.stringify([commitId]));
     const actionLine = md.split('\n').at(-1);
     expect(actionLine).toBe(
-      `[$(git-commit)](command:gitgress.revealFromBlame?${args} "Reveal in GitGress") | ` +
+      `[$(git-commit) ${commitId.slice(0, 7)}](command:gitgress.revealFromBlame?${args} "Reveal in GitGress") ` +
         `[$(copy)](command:gitgress.copyBlameHash?${args} "Copy Hash")`,
     );
+    // The footer is escaped as a whole, so the parentheses around the date
+    // appear backslash-escaped in the raw markdown (they render as plain parens).
+    expect(md).toContain('\\(September 2nd, 2026 6:18 PM\\)');
   });
 
   it('keeps codicon tokens unescaped so the icons render', () => {

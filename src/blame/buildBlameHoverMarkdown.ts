@@ -1,4 +1,4 @@
-import { formatBlameAnnotation } from './relativeTime';
+import { formatBlameFullDate, formatBlameRelativeTime } from './relativeTime';
 
 export type BlameHoverMarkdownInput = {
   commitId: string;
@@ -49,14 +49,15 @@ export function buildBlameHoverMarkdown(input: BlameHoverMarkdownInput): string 
   lines.push('');
   lines.push('---');
   lines.push('');
-  lines.push(
-    `${escapeMarkdownText(
-      formatBlameAnnotation(authorName, authorTimeUnix, nowMs, locale),
-    )} · \u002B${additions} \u2212${deletions}`,
-  );
+  const footer = `${authorName}, ${formatBlameRelativeTime(
+    authorTimeUnix,
+    nowMs,
+    locale,
+  )} (${formatBlameFullDate(authorTimeUnix, locale)})`;
+  lines.push(`${escapeMarkdownText(footer)} · \u002B${additions} \u2212${deletions}`);
   lines.push('');
   lines.push(
-    `[$(git-commit)](${commandLink('gitgress.revealFromBlame', commitId)} "Reveal in GitGress") | ` +
+    `[$(git-commit) ${commitId.slice(0, 7)}](${commandLink('gitgress.revealFromBlame', commitId)} "Reveal in GitGress") ` +
       `[$(copy)](${commandLink('gitgress.copyBlameHash', commitId)} "Copy Hash")`,
   );
   return lines.join('\n');
