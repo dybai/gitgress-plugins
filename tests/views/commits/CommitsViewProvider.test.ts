@@ -211,3 +211,19 @@ describe('CommitsViewProvider revealCommit', () => {
     );
   });
 });
+
+describe('CommitsViewProvider branch resolution empty state', () => {
+  it('posts noBranch instead of noCommits while the branch is unresolved', async () => {
+    const harness = makeHarness();
+    harness.selection.setRepo('/repo');
+
+    await vi.waitFor(() => {
+      expect(harness.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'empty', reason: 'noBranch' }),
+      );
+    });
+    expect(harness.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'empty', reason: 'noCommits' }),
+    );
+  });
+});

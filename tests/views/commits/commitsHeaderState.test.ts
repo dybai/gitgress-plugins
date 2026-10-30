@@ -75,4 +75,16 @@ describe('resolveCommitsHeader', () => {
       branchLabel: '',
     });
   });
+
+  it('keeps the repository control and hides branch while resolving', () => {
+    expect(
+      resolveCommitsHeader({ reason: 'noBranch', repoRoot: 'd:/ws/apps/api' }),
+    ).toEqual({
+      showRepo: true,
+      repoLabel: 'api',
+      repoTitle: 'd:/ws/apps/api',
+      showBranch: false,
+      branchLabel: '',
+    });
+  });
 });

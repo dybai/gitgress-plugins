@@ -865,6 +865,7 @@ import {
         noRepo: 'Open a folder containing a Git repository.',
         noSelection: 'Select a repository to view commits.',
         noCommits: 'No commits found on this branch.',
+        noBranch: 'Resolving branch…',
         error: data.message || 'Unable to load commits.',
       };
       showStatus(messages[data.reason] || 'No commit data available.', data.reason === 'error');

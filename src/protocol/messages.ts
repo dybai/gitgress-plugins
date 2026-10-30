@@ -44,7 +44,7 @@ export type HostToWebview =
     }
   | {
       type: 'empty';
-      reason: 'noRepo' | 'noCommits' | 'error' | 'noSelection';
+      reason: 'noRepo' | 'noCommits' | 'error' | 'noSelection' | 'noBranch';
       message?: string;
       /** Known owning repository, so the header stays actionable in empty states. */
       repoRoot?: string;
@@ -150,7 +150,8 @@ export function isHostMessage(value: unknown): value is HostToWebview {
         reason !== 'noRepo' &&
         reason !== 'noCommits' &&
         reason !== 'error' &&
-        reason !== 'noSelection'
+        reason !== 'noSelection' &&
+        reason !== 'noBranch'
       ) {
         return false;
       }

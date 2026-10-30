@@ -299,11 +299,7 @@ export class CommitsViewProvider implements vscode.WebviewViewProvider, vscode.D
     this.lastPostedEmptyReason = null;
     if (branch === null || branch === '') {
       this.applyMessage(
-        buildEmptyMessage({
-          reason: 'noCommits',
-          repoRoot,
-          message: 'No branch selected',
-        }),
+        buildEmptyMessage({ reason: 'noBranch', repoRoot }),
         version,
         view,
       );

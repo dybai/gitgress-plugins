@@ -12,7 +12,7 @@ function nonEmpty(value: string | null | undefined): value is string {
  * webview header can still offer Select Repository / Switch Branch.
  */
 export function buildEmptyMessage(input: {
-  reason: EmptyRepoReason | 'noCommits' | 'error';
+  reason: EmptyRepoReason | 'noCommits' | 'noBranch' | 'error';
   repoRoot?: string | null;
   branch?: string | null;
   message?: string;

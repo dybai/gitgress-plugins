@@ -8,6 +8,7 @@ export type CommitsHeaderReason =
   | 'noRepo'
   | 'noSelection'
   | 'noCommits'
+  | 'noBranch'
   | 'error';
 
 export type CommitsHeaderInput = {

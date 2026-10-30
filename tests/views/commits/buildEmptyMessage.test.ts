@@ -56,4 +56,14 @@ describe('buildEmptyMessage', () => {
       message: 'Unable to load commits',
     });
   });
+
+  it('includes repoRoot for the resolving-branch state', () => {
+    expect(
+      buildEmptyMessage({ reason: 'noBranch', repoRoot: 'd:/ws/apps/api' }),
+    ).toEqual({
+      type: 'empty',
+      reason: 'noBranch',
+      repoRoot: 'd:/ws/apps/api',
+    });
+  });
 });
