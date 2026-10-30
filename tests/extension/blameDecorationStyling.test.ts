@@ -4,15 +4,15 @@ import { describe, expect, it } from 'vitest';
 const src = readFileSync('src/extension.ts', 'utf8');
 
 describe('inline blame decoration styling', () => {
-  it('uses the ghost-text theme color for the annotation', () => {
+  it('uses the contributed muted theme color for the annotation', () => {
     expect(src).toMatch(
-      /createTextEditorDecorationType\(\{[\s\S]*?editorGhostText\.foreground/,
+      /createTextEditorDecorationType\(\{[\s\S]*?gitgress\.blameAnnotationForeground/,
     );
   });
 
-  it('keeps an 8px margin between the code and the annotation', () => {
+  it('keeps a 50px margin between the code and the annotation', () => {
     expect(src).toMatch(
-      /createTextEditorDecorationType\(\{[\s\S]*?margin:\s*'0 0 0 8px'/,
+      /createTextEditorDecorationType\(\{[\s\S]*?margin:\s*'0 0 0 50px'/,
     );
   });
 

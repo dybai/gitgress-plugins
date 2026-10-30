@@ -2,7 +2,7 @@
   "name": "gitgress",
   "displayName": "GitGress",
   "description": "Multi-lane commit graph, paginated history, changed files, and parent-commit diffs",
-  "version": "1.0.23",
+  "version": "1.0.24",
   "publisher": "dybai",
   "license": "MIT",
   "icon": "media/gitgress-icon.png",
@@ -32,7 +32,7 @@
     "repository",
     "gitgress"
   ],
-  "activationEvents": [],
+  "activationEvents": ["onStartupFinished"],
   "main": "./out/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -74,6 +74,17 @@
         }
       }
     },
+    "colors": [
+      {
+        "id": "gitgress.blameAnnotationForeground",
+        "description": "Foreground color of the inline current-line blame annotation",
+        "defaults": {
+          "dark": "#99999959",
+          "light": "#99999959",
+          "highContrast": "#99999999"
+        }
+      }
+    ],
     "commands": [
       {
         "command": "gitgress.selectRepository",

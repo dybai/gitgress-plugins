@@ -262,8 +262,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     createDecorationType: () =>
       vscode.window.createTextEditorDecorationType({
         after: {
-          color: new vscode.ThemeColor('editorGhostText.foreground'),
-          margin: '0 0 0 8px',
+          color: new vscode.ThemeColor('gitgress.blameAnnotationForeground'),
+          margin: '0 0 0 50px',
         },
       }),
     applyDecorations: (
