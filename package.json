@@ -2,7 +2,7 @@
   "name": "gitgress",
   "displayName": "GitGress",
   "description": "Multi-lane commit graph, paginated history, changed files, and parent-commit diffs",
-  "version": "1.0.27",
+  "version": "1.0.28",
   "publisher": "dybai",
   "license": "MIT",
   "icon": "media/gitgress-icon.png",

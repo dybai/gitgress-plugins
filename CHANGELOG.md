@@ -2,6 +2,11 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.28
+
+- The blame hover popup's copy button now sits about twice as far from the
+  short hash, and the hash has a little more breathing room from its icon.
+
 ## 1.0.27
 
 - The blame hover popup's reveal button now shows the commit's short hash and
