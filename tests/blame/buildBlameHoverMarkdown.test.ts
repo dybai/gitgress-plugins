@@ -72,7 +72,7 @@ describe('buildBlameHoverMarkdown', () => {
     const args = encodeURIComponent(JSON.stringify([commitId]));
     const actionLine = md.split('\n').at(-1);
     expect(actionLine).toBe(
-      `[$(git-commit)\u200A${commitId.slice(0, 7)}](command:gitgress.revealFromBlame?${args} "Reveal in GitGress")\u2002` +
+      `[$(git-commit)\u2009${commitId.slice(0, 7)}](command:gitgress.revealFromBlame?${args} "Reveal in GitGress")\u2000` +
         `[$(copy)](command:gitgress.copyBlameHash?${args} "Copy Hash")`,
     );
     // The footer is escaped as a whole, so the parentheses around the date

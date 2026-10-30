@@ -56,8 +56,14 @@ export function buildBlameHoverMarkdown(input: BlameHoverMarkdownInput): string 
   )} (${formatBlameFullDate(authorTimeUnix, locale)})`;
   lines.push(`${escapeMarkdownText(footer)} · \u002B${additions} \u2212${deletions}`);
   lines.push('');
+  // The action row's spacing uses Unicode space escapes because rendered HTML
+  // collapses runs of plain spaces. Tune the widths by swapping these escapes:
+  //   \u200A hair space  — narrowest gap
+  //   \u2009 thin space  — current: icon ↔ short hash ("a little gap")
+  //   \u2002 en space / \u2000 en quad — half an em; current: between buttons
+  //   \u2003 em space    — widest option (double the en space)
   lines.push(
-    `[$(git-commit)\u200A${commitId.slice(0, 7)}](${commandLink('gitgress.revealFromBlame', commitId)} "Reveal in GitGress")\u2002` +
+    `[$(git-commit)\u2009${commitId.slice(0, 7)}](${commandLink('gitgress.revealFromBlame', commitId)} "Reveal in GitGress")\u2000` +
       `[$(copy)](${commandLink('gitgress.copyBlameHash', commitId)} "Copy Hash")`,
   );
   return lines.join('\n');

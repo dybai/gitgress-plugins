@@ -2,6 +2,12 @@
 
 All notable changes to GitGress are documented in this file.
 
+## 1.0.29
+
+- Fine-tuned the blame hover popup's action button spacing (thin space between
+  the reveal icon and the short hash, en-space-width gap before the copy
+  button); documented the Unicode spaces used so the widths are easy to tune.
+
 ## 1.0.28
 
 - The blame hover popup's copy button now sits about twice as far from the
